@@ -35,19 +35,19 @@ class Adam4068Collector @Inject()
 (@Assisted id: String, @Assisted protocolParam: ProtocolParam, @Assisted param: Adam4068Param, system:ActorSystem) extends Actor with ActorLogging {
   var comm: SerialComm = SerialComm.open(protocolParam.comPort.get)
   var handleEvtOperation = false
-
+  val logger = Logger(this.getClass)
   import Adam4068Collector._
 
   def receive = handler(MonitorStatus.NormalStat)
 
   def handler(collectorState: String): Receive = {
     case SetState(id, state) =>
-      Logger.warn(s"Ignore $self => $state")
+      logger.warn(s"Ignore $self => $state")
 
     case WriteDO(bit, on) =>
       val os = comm.os
       val is = comm.is
-      Logger.info(s"Output DO $bit to $on")
+      logger.info(s"Output DO $bit to $on")
       val writeCmd = if (on)
         s"#${param.addr}0001\r"
       else
@@ -70,31 +70,31 @@ class Adam4068Collector @Inject()
       }
 
     case EvtOperationOverThreshold =>
-      if (handleEvtOperation == false) {
-        Logger.info("EvtOperationOverThreshold")
+      if (!handleEvtOperation) {
+        logger.info("EvtOperationOverThreshold")
         handleEvtOperation = true
         for {
           ch_idx <- param.ch.zipWithIndex
           ch = ch_idx._1
           idx = ch_idx._2
         } {
-          if (ch.enable && ch.evtOp == Some(EventOperation.OverThreshold)) {
-            self ! WriteDO(idx, true)
+          if (ch.enable && ch.evtOp.contains(EventOperation.OverThreshold)) {
+            self ! WriteDO(idx, on = true)
             system.scheduler.scheduleOnce(scala.concurrent.duration.Duration(ch.duration.get, SECONDS), self, StopEvtOperationOverThreshold)
           }
         }
       }
 
     case StopEvtOperationOverThreshold =>
-      if (handleEvtOperation == true) {
-        Logger.info("Stop EvtOperationOverThreshold")
+      if (handleEvtOperation) {
+        logger.info("Stop EvtOperationOverThreshold")
         handleEvtOperation = false
         for {
           ch_idx <- param.ch.zipWithIndex
           ch = ch_idx._1
           idx = ch_idx._2
         } {
-          if (ch.enable && ch.evtOp == Some(EventOperation.OverThreshold)) {
+          if (ch.enable && ch.evtOp.contains(EventOperation.OverThreshold)) {
             self ! WriteDO(idx, false)
           }
         }

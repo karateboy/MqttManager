@@ -107,9 +107,9 @@ class MqttCollector2 @Inject()(monitorOp: MonitorOp, alarmOp: AlarmOp,
 
   implicit val reads = Json.reads[Message]
   var mqttClientOpt: Option[MqttAsyncClient] = None
-  var lastDataArrival: DateTime = DateTime.now
+  var lastDataArrival: DateTime = DateTime.now()
 
-  val watchDog = context.system.scheduler.schedule(Duration(1, SECONDS),
+  val watchDog: Cancellable = context.system.scheduler.scheduleWithFixedDelay(Duration(1, SECONDS),
     Duration(timeout, MINUTES), self, CheckTimeout)
 
   self ! CreateClient
@@ -215,7 +215,7 @@ class MqttCollector2 @Inject()(monitorOp: MonitorOp, alarmOp: AlarmOp,
 
   override def messageArrived(topic: String, message: MqttMessage): Unit = {
     try {
-      lastDataArrival = DateTime.now
+      lastDataArrival = DateTime.now()
       self ! HandleMessage(new String(message.getPayload))
     } catch {
       case ex: Exception =>

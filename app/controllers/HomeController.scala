@@ -29,7 +29,7 @@ class HomeController @Inject()(environment: play.api.Environment,
                                cc: ControllerComponents) extends AbstractController(cc) {
 
   val title = "資料擷取器"
-
+  val logger = Logger(this.getClass)
   val epaReportPath: String = environment.rootPath + "/importEPA/"
 
   implicit val userParamRead: Reads[User] = Json.reads[User]
@@ -43,7 +43,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
       newUserParam.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         param => {
@@ -67,7 +67,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
       userParam.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         param => {
@@ -89,7 +89,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
       newUserParam.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         param => {
@@ -110,7 +110,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
       userParam.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         param => {
@@ -164,7 +164,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
       instrumentResult.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         instrument => {
@@ -291,7 +291,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Exception =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -309,7 +309,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -327,7 +327,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -350,7 +350,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -360,7 +360,7 @@ class HomeController @Inject()(environment: play.api.Environment,
   def calibrateInstrument(instruments: String, zeroCalibrationStr: String): Action[AnyContent] = security.Authenticated {
     val ids = instruments.split(",")
     val zeroCalibration = zeroCalibrationStr.toBoolean
-    Logger.debug(s"zeroCalibration=$zeroCalibration")
+    logger.debug(s"zeroCalibration=$zeroCalibration")
 
     try {
       ids.foreach { id =>
@@ -371,7 +371,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -386,7 +386,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -401,7 +401,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -414,7 +414,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       val mResult = request.body.validate[WriteDO]
       mResult.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         writeDO => {
@@ -426,7 +426,7 @@ class HomeController @Inject()(environment: play.api.Environment,
             Ok(Json.obj("ok" -> true))
           } catch {
             case ex: Throwable =>
-              Logger.error(ex.getMessage, ex)
+              logger.error(ex.getMessage, ex)
               Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
           }
         })
@@ -440,7 +440,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(ex.getMessage)
     }
 
@@ -455,7 +455,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       }
     } catch {
       case ex: Throwable =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         Ok(Json.obj("ok" -> false, "msg" -> ex.getMessage))
     }
 
@@ -487,7 +487,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       val mResult = request.body.validate[Monitor]
       mResult.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         m => {
@@ -508,8 +508,8 @@ class HomeController @Inject()(environment: play.api.Environment,
         groupOp.getGroupByID(userInfo.group).get
       } catch {
         case ex: Throwable =>
-          Logger.info(s"userInfo.id: ${userInfo.id} userInfo.group:${userInfo.group}")
-          Logger.error(ex.getMessage, ex)
+          logger.info(s"userInfo.id: ${userInfo.id} userInfo.group:${userInfo.group}")
+          logger.error(ex.getMessage, ex)
           throw ex
       }
 
@@ -528,7 +528,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
   def upsertMonitorType(id: String): Action[JsValue] = security.Authenticated(parse.json) {
     implicit request =>
-      Logger.info(s"upsert Mt:${id}")
+      logger.info(s"upsert Mt:${id}")
       val userInfo = security.getUserinfo(request).get
       val group = groupOp.getGroupByID(userInfo.group).get
 
@@ -536,7 +536,7 @@ class HomeController @Inject()(environment: play.api.Environment,
 
       mtResult.fold(
         error => {
-          Logger.error(JsError.toJson(error).toString())
+          logger.error(JsError.toJson(error).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(error).toString()))
         },
         mt => {
@@ -546,7 +546,7 @@ class HomeController @Inject()(environment: play.api.Environment,
           }
 
           mt.group = Some(group._id)
-          Logger.info(mt.toString)
+          logger.info(mt.toString)
           monitorTypeOp.upsertMonitorType(mt)
           Ok(Json.obj("ok" -> true))
         })
@@ -644,7 +644,7 @@ class HomeController @Inject()(environment: play.api.Environment,
     implicit request =>
       val dataFileOpt = request.body.file("data")
       if (dataFileOpt.isEmpty) {
-        Logger.info("data is empty..")
+        logger.info("data is empty..")
         Ok(Json.obj("ok" -> true))
       } else {
         val dataFile = dataFileOpt.get
@@ -661,11 +661,11 @@ class HomeController @Inject()(environment: play.api.Environment,
             (DataImporter.EpaData, nio.file.Files.createTempFile("epa", ".csv"))
         }
 
-        val file = dataFile.ref.moveTo(filePath.toFile, replace = true)
+        val path = dataFile.ref.moveTo(filePath.toFile, replace = true)
 
         val actorName = DataImporter.start(monitorOp = monitorOp, recordOp = recordOp,
           sensorOp = sensorOp,
-          dataFile = file, fileType = fileType, dataCollectManagerOp = dataCollectManagerOp)(actorSystem)
+          dataFile = path.toFile, fileType = fileType, dataCollectManagerOp = dataCollectManagerOp)(actorSystem)
         Ok(Json.obj("actorName" -> actorName))
       }
   }
@@ -686,7 +686,7 @@ class HomeController @Inject()(environment: play.api.Environment,
       import MqttSensor.read
       val ret = request.body.validate[Sensor]
       ret.fold(err => {
-        Logger.error(JsError.toJson(err).toString())
+        logger.error(JsError.toJson(err).toString())
         Future {
           BadRequest(JsError.toJson(err).toString())
         }
@@ -707,7 +707,7 @@ class HomeController @Inject()(environment: play.api.Environment,
   }
 
   def testAlertEmail(id: String): Action[AnyContent] = security.Authenticated {
-    Logger.info(s"testAlertEmail $id")
+    logger.info(s"testAlertEmail $id")
     val userOpt = userOp.getUserByEmail(id)
     for {
       user <- userOpt
@@ -730,7 +730,7 @@ class HomeController @Inject()(environment: play.api.Environment,
                 mailerClient.send(mail)
               } catch {
                 case ex: Exception =>
-                  Logger.error("Failed to send email", ex)
+                  logger.error("Failed to send email", ex)
               }
             }
           }
@@ -741,7 +741,7 @@ class HomeController @Inject()(environment: play.api.Environment,
           every8d.sendSMS(subject, msg, smsPhone.split(",").toList).failed.foreach(errorHandler)
         } catch {
           case ex: Exception =>
-            Logger.error("Failed to send sms", ex)
+            logger.error("Failed to send sms", ex)
         }
       }
     }
@@ -749,7 +749,7 @@ class HomeController @Inject()(environment: play.api.Environment,
   }
 
   def testLINE(token: String): Action[AnyContent] = security.Authenticated.async {
-    Logger.info(s"testLINE $token")
+    logger.info(s"testLINE $token")
     val f = lineNotify.notify(token, "測試訊息")
     for (_ <- f) yield {
       Ok(Json.obj("ok" -> true))
@@ -760,9 +760,9 @@ class HomeController @Inject()(environment: play.api.Environment,
 
   for (lower <- sysConfig.get(sysConfig.CleanH2SOver150).map(_.asBoolean().getValue)) {
     /*
-    Logger.info(s"Lower H2S over 150 $lower")
+    logger.info(s"Lower H2S over 150 $lower")
     if(!lower){
-      Logger.info("Lower H2S over 150")
+      logger.info("Lower H2S over 150")
       recordOp.lowerH2SOver150(recordOp.MinCollection)
       recordOp.lowerH2SOver150(recordOp.HourCollection)
       sysConfig.set(sysConfig.CleanH2SOver150, new BsonBoolean(true))

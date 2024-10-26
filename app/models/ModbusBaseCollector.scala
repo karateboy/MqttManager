@@ -1,8 +1,6 @@
 package models
 import akka.actor._
 import play.api._
-import play.api.libs.concurrent.Akka
-
 import javax.inject._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -10,7 +8,7 @@ object ModbusBaseCollector {
   case class ConnectHost(host: String)
   case object ReadRegister
   import Protocol.ProtocolParam
-
+  val logger = Logger(this.getClass)
   var count = 0
   def start(protocolParam: ProtocolParam, props: Props)(implicit context: ActorContext) = {
 
@@ -18,7 +16,7 @@ object ModbusBaseCollector {
     val actorName = s"${model(model.length - 1)}_${count}"
     count += 1
     val collector = context.actorOf(props, name = actorName)
-    Logger.info(s"$actorName is created.")
+    logger.info(s"$actorName is created.")
 
     val host = protocolParam.host.get
     collector ! ConnectHost(host)
@@ -32,7 +30,7 @@ abstract class ModbusBaseCollector @Inject()
 (instrumentOp: InstrumentOp, alarmOp: AlarmOp, system: ActorSystem,
  instrumentStatusOp: InstrumentStatusOp, monitorStatusOp: MonitorStatusOp)(instId: String, slaveID: Int, modelReg: ModelReg, config: ModbusModelConfig) extends Actor {
   var timerOpt: Option[Cancellable] = None
-
+  val logger = Logger(this.getClass)
   import ModbusBaseCollector._
   import com.serotonin.modbus4j._
   import com.serotonin.modbus4j.ip.IpParameters
@@ -53,7 +51,7 @@ abstract class ModbusBaseCollector @Inject()
 
   def getMonitorTypeStatusMap = mtStatusMap
 
-  Logger.info(s"$self state=${monitorStatusOp.map(collectorState).desp}")
+  logger.info(s"$self state=${monitorStatusOp.map(collectorState).desp}")
 
   val InputKey = "Input"
   val HoldingKey = "Holding"
@@ -61,7 +59,7 @@ abstract class ModbusBaseCollector @Inject()
   val WarnKey = "Warn"
 
   def probeInstrumentStatusType = {
-    Logger.info("Probing supported modbus registers...")
+    logger.info("Probing supported modbus registers...")
     import com.serotonin.modbus4j.code.DataType
     import com.serotonin.modbus4j.locator.BaseLocator
 
@@ -72,8 +70,8 @@ abstract class ModbusBaseCollector @Inject()
         true
       } catch {
         case ex: Throwable =>
-          Logger.error(ex.getMessage, ex)
-          Logger.info(s"$addr $desc is not supported.")
+          logger.error(ex.getMessage, ex)
+          logger.info(s"$addr $desc is not supported.")
           false
       }
     }
@@ -85,7 +83,7 @@ abstract class ModbusBaseCollector @Inject()
         true
       } catch {
         case ex: Throwable =>
-          Logger.info(s"$addr $desc is not supported.")
+          logger.info(s"$addr $desc is not supported.")
           false
       }
     }
@@ -97,7 +95,7 @@ abstract class ModbusBaseCollector @Inject()
         true
       } catch {
         case ex: Throwable =>
-          Logger.info(s"$addr $desc is not supported.")
+          logger.info(s"$addr $desc is not supported.")
           false
       }
     }
@@ -138,7 +136,7 @@ abstract class ModbusBaseCollector @Inject()
         r <- warnRegs
       } yield InstrumentStatusType(key = s"$WarnKey${r.addr}", addr = r.addr, desc = r.desc, unit = "-")
 
-    Logger.info("Finish probing.")
+    logger.info("Finish probing.")
     inputRegStatusType ++ holdingRegStatusType ++ modeRegStatusType ++ warnRegStatusType
   }
 
@@ -212,7 +210,7 @@ abstract class ModbusBaseCollector @Inject()
           connected = true
         } catch {
           case ex: Exception =>
-            Logger.error(ex.getMessage, ex)
+            logger.error(ex.getMessage, ex)
             if (connected)
               alarmOp.log(alarmOp.instStr(instId), alarmOp.Level.ERR, s"${ex.getMessage}")
 
@@ -224,9 +222,9 @@ abstract class ModbusBaseCollector @Inject()
       }
     }
 
-  def normalReceive(): Receive = {
+  private def normalReceive(): Receive = {
     case ConnectHost(host) =>
-      Logger.info(s"${self.toString()}: connect $host")
+      logger.info(s"${self.toString()}: connect $host")
       Future {
         blocking {
           try {
@@ -251,7 +249,7 @@ abstract class ModbusBaseCollector @Inject()
             timerOpt = Some(system.scheduler.scheduleOnce(Duration(1, SECONDS), self, ReadRegister))
           } catch {
             case ex: Exception =>
-              Logger.error(ex.getMessage, ex)
+              logger.error(ex.getMessage, ex)
               alarmOp.log(alarmOp.instStr(instId), alarmOp.Level.ERR, s"無法連接:${ex.getMessage}")
               import scala.concurrent.duration._
 
@@ -265,18 +263,18 @@ abstract class ModbusBaseCollector @Inject()
 
     case SetState(id, state) =>
       if (state == MonitorStatus.ZeroCalibrationStat) {
-        Logger.error(s"Unexpected command: SetState($state)")
+        logger.error(s"Unexpected command: SetState($state)")
       } else {
         collectorState = state
         instrumentOp.setState(instId, collectorState)
       }
-      Logger.info(s"$self => ${monitorStatusOp.map(collectorState).desp}")
+      logger.info(s"$self => ${monitorStatusOp.map(collectorState).desp}")
 
     case SetMonitorTypeState(id, mt, state) =>
       mtStatusMap = mtStatusMap + (mt -> state)
 
     case op =>
-      Logger.error(s"unsupported msg ${op.toString()}")
+      logger.error(s"unsupported msg ${op.toString}")
   }
 
   def reportData(regValue: ModelRegValue): ReportData
@@ -343,7 +341,7 @@ abstract class ModbusBaseCollector @Inject()
         logInstrumentStatus(regValue)
       } catch {
         case _: Throwable =>
-          Logger.error("Log instrument status failed")
+          logger.error("Log instrument status failed")
       }
       nextLoggingStatusTime = nextLoggingStatusTime + 10.minute
       //Logger.debug(s"next logging time = $nextLoggingStatusTime")

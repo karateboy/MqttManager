@@ -3,9 +3,7 @@ import akka.actor._
 import com.google.inject.assistedinject.Assisted
 import models.ModelHelper._
 import models.Protocol.ProtocolParam
-import play.api.Play.current
 import play.api._
-import play.api.libs.concurrent.Akka
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

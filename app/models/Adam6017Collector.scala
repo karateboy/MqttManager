@@ -47,7 +47,7 @@ class Adam6017Collector @Inject()
     val ret = for (v <- values) yield
       "%.5f".format(v)
 
-    Logger.info(ret.toString())
+    logger.info(ret.toString())
     val dataPairList =
       for {
         cfg <- param.chs.zipWithIndex
@@ -106,8 +106,8 @@ class Adam6017Collector @Inject()
             self ! WriteDO(bit = 16, on = false)
           } catch {
             case ex: Exception =>
-              Logger.error(ex.getMessage)
-              Logger.info("Try again 1 min later...")
+              logger.error(ex.getMessage)
+              logger.info("Try again 1 min later...")
               for(groupID <- me.group)
                 alarmOp.log(alarmOp.Src(groupID), alarmOp.Level.WARN, s"${groupOp.map(groupID).name}> 灑水設備斷線", 10)
               //Try again
@@ -147,7 +147,7 @@ class Adam6017Collector @Inject()
             cancelable = context.system.scheduler.scheduleOnce(scala.concurrent.duration.Duration(3, SECONDS), self, Collect)
           } catch {
             case ex: Throwable =>
-              Logger.error("Read reg failed", ex)
+              logger.error("Read reg failed", ex)
               masterOpt.get.destroy()
               context become handler(collectorState, None)
               self ! ConnectHost
@@ -156,12 +156,12 @@ class Adam6017Collector @Inject()
       }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
-      Logger.info(s"$self => $state")
+      logger.info(s"$self => $state")
       instrumentOp.setState(id, state)
       context become handler(state, masterOpt)
 
     case WriteDO(bit, on) =>
-      Logger.info(s"Output DO $bit to $on")
+      logger.info(s"Output DO $bit to $on")
       try {
         import com.serotonin.modbus4j.locator.BaseLocator
         val locator = BaseLocator.coilStatus(1, bit)

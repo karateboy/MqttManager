@@ -69,7 +69,7 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
                    dataFile: File, fileType: FileType, dataCollectManagerOp: DataCollectManagerOp) extends Actor {
 
   import DataImporter._
-
+  val logger = Logger(this.getClass)
   self ! Import
 
   def receive: Receive = {
@@ -84,28 +84,28 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
                     importSensorData("BIG5")
                 } catch {
                   case ex: Throwable =>
-                    Logger.error("failed to import sensor data", ex)
+                    logger.error("failed to import sensor data", ex)
                 }
               case SensorRawData =>
                 try {
                   importSensorRawData("UTF-8")
                 } catch {
                   case ex: Throwable =>
-                    Logger.error("failed to import sensor raw data", ex)
+                    logger.error("failed to import sensor raw data", ex)
                 }
               case UpdateSensorData =>
                 try {
                   importSensorRawData("UTF-8", updateOnly = true)
                 } catch {
                   case ex: Throwable =>
-                    Logger.error("failed to update sensor raw data", ex)
+                    logger.error("failed to update sensor raw data", ex)
                 }
               case EpaData =>
                 importEpaData()
             }
           } catch {
             case ex: Exception =>
-              Logger.error("failed to import", ex)
+              logger.error("failed to import", ex)
           }
         }
       }
@@ -115,7 +115,7 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
   }
 
   private def importSensorData(encoding: String): Int = {
-    Logger.info(s"Start import ${dataFile.getName}")
+    logger.info(s"Start import ${dataFile.getName}")
     val reader = CSVReader.open(dataFile, encoding)
     var count = 0
     val docOpts =
@@ -139,17 +139,17 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
     val docs = docOpts.flatten
 
     reader.close()
-    Logger.info(s"Total $count records")
+    logger.info(s"Total $count records")
     if (docs.nonEmpty) {
       dataFile.delete()
       val f = recordOp.upsertManyRecord(docs = docs)(recordOp.HourCollection)
       f.failed.foreach (errorHandler)
       f onComplete ({
         case Success(result) =>
-          Logger.info(s"Import ${dataFile.getName} complete. ${result.getUpserts.size()} records upserted.")
+          logger.info(s"Import ${dataFile.getName} complete. ${result.getUpserts.size()} records upserted.")
           self ! Complete
         case Failure(exception) =>
-          Logger.error("Failed to import data", exception)
+          logger.error("Failed to import data", exception)
           self ! Complete
       })
     }
@@ -157,7 +157,7 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
   }
 
   private def importSensorRawData(encoding: String, updateOnly: Boolean = false): Int = {
-    Logger.info(s"Start import sensor raw ${dataFile.getName}")
+    logger.info(s"Start import sensor raw ${dataFile.getName}")
     val sensorMapF = sensorOp.getSensorMap
     val reader = CSVReader.open(dataFile, encoding)
     var count = 0
@@ -200,12 +200,12 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
             mtDataList = mtRecords))
         } catch {
           case ex: Throwable =>
-            Logger.error("skip line", ex)
+            logger.error("skip line", ex)
             None
         }
     val docs = docOpts.flatten
     reader.close()
-    Logger.info(s"Total $count records")
+    logger.info(s"Total $count records")
     if (docs.nonEmpty) {
       dataFile.delete()
       val f = recordOp.upsertManyRecord(docs = docs)(recordOp.MinCollection)
@@ -213,7 +213,7 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
       f.failed.foreach(errorHandler)
       f onComplete {
         case Success(_) =>
-          Logger.info(s"Import ${dataFile.getName} complete.")
+          logger.info(s"Import ${dataFile.getName} complete.")
           val start = new DateTime(docs.map(_._id.time).min)
           val end = new DateTime(docs.map(_._id.time).max)
           val monitors = mutable.Set.empty[String]
@@ -227,11 +227,11 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
 
           self ! Complete
         case Failure(exception) =>
-          Logger.error("Failed to import data", exception)
+          logger.error("Failed to import data", exception)
           self ! Complete
       }
     } else {
-      Logger.error("no record to be upsert!")
+      logger.error("no record to be upsert!")
       self ! Complete
     }
 
@@ -240,7 +240,7 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
 
 
   def importEpaData(): Unit = {
-    Logger.info(s"Start import ${dataFile.getName}")
+    logger.info(s"Start import ${dataFile.getName}")
     val reader = CSVReader.open(dataFile, "Big5")
     val docs =
       for {record <- reader.allWithHeaders()
@@ -267,15 +267,15 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
       }
     reader.close()
     dataFile.delete()
-    Logger.info(s"Total ${docs.length} records")
+    logger.info(s"Total ${docs.length} records")
     val f = recordOp.upsertManyRecord(docs = docs)(recordOp.HourCollection)
     f.failed.foreach (errorHandler)
     f onComplete {
       case Success(result) =>
-        Logger.info(s"Import ${dataFile.getName} complete. ${result.getUpserts.size()} records upserted.")
+        logger.info(s"Import ${dataFile.getName} complete. ${result.getUpserts.size()} records upserted.")
         self ! Complete
       case Failure(exception) =>
-        Logger.error("Failed to import data", exception)
+        logger.error("Failed to import data", exception)
         self ! Complete
     }
   }

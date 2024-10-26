@@ -229,9 +229,9 @@ class MonitorTypeOp @Inject()(mongoDB: MongoDB, alarmOp: AlarmOp, groupOp: Group
     signalValueMap map { p => p._1 -> p._2._2 }
   }
 
-  def logDiMonitorType(mt: String, v: Boolean, groupID:String = "") = {
+  def logDiMonitorType(mt: String, v: Boolean, groupID:String = ""): Unit = {
     if (!signalMtvList.contains(mt))
-      Logger.warn(s"${mt} is not DI monitor type!")
+      logger.warn(s"${mt} is not DI monitor type!")
 
     val mtCase = map(mt)
     val group = groupOp.map(groupID)

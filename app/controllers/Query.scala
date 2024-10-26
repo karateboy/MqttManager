@@ -196,7 +196,7 @@ class Query @Inject()(recordOp: RecordOp,
 
         Ok.sendFile(excelFile,
           inline = true,
-          fileName = _ => s"$downloadFileName.xlsx",
+          fileName = _ => Some(s"$downloadFileName.xlsx"),
           onClose = () => {
             Files.deleteIfExists(excelFile.toPath)
           })
@@ -738,7 +738,7 @@ class Query @Inject()(recordOp: RecordOp,
       val tabType = TableType.withName(tabTypeStr)
       result.fold(
         err => {
-          Logger.error(JsError.toJson(err).toString())
+          logger.error(JsError.toJson(err).toString())
           BadRequest(Json.obj("ok" -> false, "msg" -> JsError.toJson(err).toString()))
         },
         maParam => {

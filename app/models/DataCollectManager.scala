@@ -412,7 +412,7 @@ class DataCollectManager @Inject()
     import scala.concurrent.duration._
     val next30 = DateTime.now().withSecondOfMinute(30).plusMinutes(1)
     val postSeconds = new org.joda.time.Duration(DateTime.now, next30).getStandardSeconds
-    context.system.scheduler.schedule(Duration(postSeconds, SECONDS), Duration(1, MINUTES), self, CalculateData)
+    context.system.scheduler.scheduleWithFixedDelay(Duration(postSeconds, SECONDS), Duration(1, MINUTES), self, CalculateData)
   }
 
   instrumentOp.getInstrumentList.foreach {
@@ -498,7 +498,7 @@ class DataCollectManager @Inject()
           new Duration(DateTime.now(), calibrationTime + 1.day)
 
         import scala.concurrent.duration._
-        context.system.scheduler.schedule(
+        context.system.scheduler.scheduleWithFixedDelay(
           Duration(duration.getStandardSeconds + 1, SECONDS),
           Duration(1, DAYS), self, AutoCalibration(inst._id))
       }

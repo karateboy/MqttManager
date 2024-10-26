@@ -8,7 +8,6 @@ import com.itextpdf.tool.xml.pipeline.css.CssResolverPipeline
 import com.itextpdf.tool.xml.pipeline.end.PdfWriterPipeline
 import com.itextpdf.tool.xml.pipeline.html.{HtmlPipeline, HtmlPipelineContext}
 import play.api.Application
-import play.api.Play.current
 
 import javax.inject._
 /**

@@ -42,7 +42,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
   import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
-
+  val logger = Logger(this.getClass)
   val colName = "errorReports"
 
   val codecRegistry = fromRegistries(fromProviders(classOf[ErrorReport], classOf[EffectiveRate], classOf[ErrorAction]), DEFAULT_CODEC_REGISTRY)
@@ -208,21 +208,21 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   }
 
 
-  def sendEmail(emailTargetList: Seq[EmailTarget]) = {
+  def sendEmail(emailTargetList: Seq[EmailTarget]): Future[Unit] = {
     val today = DateTime.now.withMillisOfDay(0)
     val f = get(today.toDate)
     f.failed.foreach(errorHandler())
     for (reports <- f) yield {
       for (emailTarget <- emailTargetList) {
-        Logger.info(s"send report to ${emailTarget.toString}")
+        logger.info(s"send report to ${emailTarget.toString}")
         val subReportList =
           if (reports.isEmpty) {
-            Logger.info("Emtpy report!")
+            logger.info("Emtpy report!")
             Seq.empty[SensorErrorReport]
           } else {
             val report = reports(0)
             def getSensorErrorReport(title:String, monitorIDs:Seq[String])={
-              val monitors = monitorIDs.map(monitorOp.map.get).flatten
+              val monitors = monitorIDs.flatMap(monitorOp.map.get)
               SensorErrorReport(title, monitors = monitors)
             }
 
@@ -245,19 +245,19 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
           mailerClient.send(mail)
         } catch {
           case ex: Exception =>
-            Logger.error("Failed to send email", ex)
+            logger.error("Failed to send email", ex)
         }
       }
     }
   }
 
-  def get(_id: Date) = {
+  def get(_id: Date): Future[Seq[ErrorReport]] = {
     val f = collection.find(Filters.equal("_id", _id)).toFuture()
     f.failed.foreach(errorHandler())
     f
   }
 
-  def get(start:Date, end:Date)= {
+  def get(start:Date, end:Date): Future[Seq[ErrorReport]] = {
     val filter = Filters.and(Filters.gte("_id", start), Filters.lte("_id", end))
     val f = collection.find(filter).toFuture()
     f.failed.foreach(errorHandler())

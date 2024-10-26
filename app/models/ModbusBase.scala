@@ -109,7 +109,7 @@ abstract class ModbusBase(modelConfig: ModbusModelConfig) extends DriverOps {
     val ret = Json.parse(json).validate[ModbusConfig]
     ret.fold(
       error => {
-        Logger.error(JsError.toJson(error).toString())
+        logger.error(JsError.toJson(error).toString())
         throw new Exception(JsError.toJson(error).toString())
       },
       param => param)

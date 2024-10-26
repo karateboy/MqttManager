@@ -26,7 +26,7 @@ class SysConfig @Inject()(mongoDB: MongoDB){
     CleanH2SOver150 -> Document(valueKey -> false)
   )
 
-  def init() {
+  def init(): Unit = {
     for(colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(ColName)) {
         val f = mongoDB.database.createCollection(ColName).toFuture()

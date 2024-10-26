@@ -14,9 +14,10 @@ import play.api.libs.concurrent.AkkaGuiceSupport
  * configuration file.
  */
 class Module extends AbstractModule with AkkaGuiceSupport {
-  Logger.info("Module...")
+  val logger: Logger = Logger(this.getClass)
+  logger.info("Module...")
 
-  override def configure() = {
+  override def configure(): Unit = {
     bind(classOf[MongoDB])
     bind(classOf[MonitorTypeOp])
 

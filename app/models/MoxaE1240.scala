@@ -10,6 +10,7 @@ case class MoxaE1240Param(addr: Int, ch: Seq[AiChannelCfg])
 
 @Singleton
 class MoxaE1240 @Inject()(monitorTypeOp: MonitorTypeOp) extends DriverOps {
+  val logger = Logger(this.getClass)
   override def getMonitorTypes(param: String) = {
     val e1240Param = validateParam(param)
     val mtList = e1240Param.ch.filter {
@@ -65,7 +66,7 @@ class MoxaE1240 @Inject()(monitorTypeOp: MonitorTypeOp) extends DriverOps {
     val ret = Json.parse(json).validate[MoxaE1240Param]
     ret.fold(
       error => {
-        Logger.error(JsError.toJson(error).toString())
+        logger.error(JsError.toJson(error).toString())
         throw new Exception(JsError.toJson(error).toString())
       },
       params => {

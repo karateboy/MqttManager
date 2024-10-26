@@ -13,7 +13,7 @@ import javax.inject._
 class Adam6066 @Inject()
 (monitorTypeOp: MonitorTypeOp)
   extends DriverOps {
-
+  val logger = Logger(this.getClass)
   implicit val cfgReads = Json.reads[Adam6066ChannelCfg]
   implicit val reads = Json.reads[Adam6066Param]
   implicit val w1 = Json.writes[Adam6066ChannelCfg]
@@ -23,7 +23,7 @@ class Adam6066 @Inject()
     val ret = Json.parse(param).validate[Adam6066Param]
     ret.fold(
       error => {
-        Logger.error(JsError.toJson(error).toString())
+        logger.error(JsError.toJson(error).toString())
         throw new Exception(JsError.toJson(error).toString())
       },
       params => {
@@ -37,7 +37,7 @@ class Adam6066 @Inject()
     val ret = Json.parse(json).validate[Adam6066Param]
     ret.fold(
       error => {
-        Logger.error(JsError.toJson(error).toString())
+        logger.error(JsError.toJson(error).toString())
         throw new Exception(JsError.toJson(error).toString())
       },
       params => {

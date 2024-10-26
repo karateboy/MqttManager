@@ -288,7 +288,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
       Aggregates.filter(Filters.in("_id.monitor", targetMonitors: _*))
 
     val sortFilter = Aggregates.sort(orderBy(descending("_id.time"), descending("_id.monitor")))
-    val timeFrameFilter = Aggregates.filter(Filters.and(Filters.gt("_id.time", DateTime.now.minusMinutes(30).toDate)))
+    val timeFrameFilter = Aggregates.filter(Filters.and(Filters.gt("_id.time", DateTime.now().minusMinutes(30).toDate)))
 
     val addPm25ValueStage = Aggregates.addFields(Field("pm25", "$pm25Data.value"))
     val latestFilter = Aggregates.group(id = "$_id.monitor", Accumulators.first("time", "$_id.time"),
@@ -317,7 +317,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
       Aggregates.filter(Filters.in("_id.monitor", targetMonitors: _*))
 
     val sortFilter = Aggregates.sort(orderBy(descending("_id.time"), descending("_id.monitor")))
-    val timeFrameFilter = Aggregates.filter(Filters.and(Filters.gt("_id.time", DateTime.now.minusMinutes(30).toDate)))
+    val timeFrameFilter = Aggregates.filter(Filters.and(Filters.gt("_id.time", DateTime.now().minusMinutes(30).toDate)))
 
     val latestFilter = Aggregates.group(id = "$_id.monitor", Accumulators.first("time", "$_id.time"),
       Accumulators.first("mtDataList", "$mtDataList"),

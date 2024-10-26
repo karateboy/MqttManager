@@ -37,6 +37,7 @@ class Report @Inject()(monitorTypeOp: MonitorTypeOp,
   implicit val w2 = Json.writes[StatRow]
   implicit val w1 = Json.writes[RowData]
   implicit val w = Json.writes[DailyReport]
+  val logger = Logger(getClass)
 
   def getMonitorReport(reportTypeStr: String, startNum: Long, outputTypeStr: String): Action[AnyContent] = security.Authenticated {
     implicit request =>
@@ -50,7 +51,7 @@ class Report @Inject()(monitorTypeOp: MonitorTypeOp,
         reportType match {
           case PeriodReport.DailyReport =>
             val startDate = new DateTime(startNum).withMillisOfDay(0)
-            Logger.info(startDate.toString())
+            logger.info(startDate.toString())
             val mtList = monitorTypeOp.realtimeMtvList
             val periodMap = recordOp.getRecordMap(recordOp.HourCollection)(Monitor.SELF_ID, mtList, startDate, startDate + 1.day)
             val mtTimeMap: Map[String, Map[DateTime, Record]] = periodMap.map { pair =>

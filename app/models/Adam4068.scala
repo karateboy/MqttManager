@@ -40,7 +40,7 @@ object Adam4068 extends DriverOps {
     val ret = Json.parse(json).validate[Adam4068Param]
     ret.fold(
       error => {
-        Logger.error(JsError.toJson(error).toString())
+        logger.error(JsError.toJson(error).toString())
         throw new Exception(JsError.toJson(error).toString())
       },
       params => {

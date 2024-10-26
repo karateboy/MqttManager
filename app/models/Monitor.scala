@@ -55,28 +55,28 @@ class MonitorOp @Inject()(mongoDB: MongoDB, config: Configuration, sensorOp: Mqt
     }
   }
 
-  init
+  init()
   refresh
 
-  def mvList = mList.map(_._id).filter({
+  def mvList: List[String] = mList.map(_._id).filter({
     p =>
       hasSelfMonitor || p != SELF_ID
   })
 
-  def ensureMonitor(_id: String) = {
+  def ensureMonitor(_id: String):Unit = {
     if (!map.contains(_id)) {
       newMonitor(Monitor(_id, _id))
     }
   }
 
-  def ensureMonitor(_id: String, monitorTypes: Seq[String]) = {
+  def ensureMonitor(_id: String, monitorTypes: Seq[String]): Unit = {
     if (!map.contains(_id)) {
       newMonitor(Monitor(_id, _id, monitorTypes))
     }
   }
 
-  def newMonitor(m: Monitor) = {
-    Logger.debug(s"Create monitor value ${m._id}!")
+  private def newMonitor(m: Monitor): String = {
+    logger.debug(s"Create monitor value ${m._id}!")
     map = map + (m._id -> m)
 
     val f = collection.insertOne(m).toFuture()

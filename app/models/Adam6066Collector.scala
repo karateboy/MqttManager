@@ -75,7 +75,7 @@ class Adam6066Collector @Inject()
             cancelable = context.system.scheduler.scheduleOnce(Duration(3, SECONDS), self, Collect)
           } catch {
             case ex: Exception =>
-              Logger.error(s"$id ${ex.getMessage}")
+              logger.error(s"$id ${ex.getMessage}")
               for(groupID <- me.group)
                 alarmOp.log(alarmOp.Src(groupID), alarmOp.Level.WARN, s"${groupOp.map(groupID).name}> 灑水設備斷線", 10)
               //Try again
@@ -131,8 +131,8 @@ class Adam6066Collector @Inject()
             }
           } catch {
             case ex: Throwable =>
-              Logger.error("Read reg failed", ex)
-              masterOpt map { _.destroy() }
+              logger.error("Read reg failed", ex)
+              masterOpt foreach { _.destroy() }
               context become handler(collectorState, None, diValueMap)
               self ! ConnectHost
           }
@@ -140,16 +140,16 @@ class Adam6066Collector @Inject()
       }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
-      Logger.info(s"$self => $state")
+      logger.info(s"$self => $state")
       instrumentOp.setState(id, state)
       context become handler(state, masterOpt, diValueMap)
 
     case WriteDO(bit, on) =>
-      Logger.info(s"Output DO $bit to $on")
+      logger.info(s"Output DO $bit to $on")
       try {
         import com.serotonin.modbus4j.locator.BaseLocator
         val locator = BaseLocator.coilStatus(1, bit)
-        masterOpt map {
+        masterOpt foreach {
           master => master.setValue(locator, on)
         }
         // Refresh status
@@ -165,7 +165,7 @@ class Adam6066Collector @Inject()
         mt = chCfg.mt.get if mt == mtID
         idx = cfg._2
       } yield {
-        Logger.info(s"WriteMonitorTypeDO $mtID $idx $on")
+        logger.info(s"WriteMonitorTypeDO $mtID $idx $on")
         self ! WriteDO(16 + idx, on)
       }
   }

@@ -63,9 +63,9 @@ case class SerialComm(port: SerialPort, is: SerialInputStream, os: SerialOutputS
   def getLine2(timeout: Int):List[String] = {
     import com.github.nscala_time.time.Imports._
     var strList = getLine2
-    val startTime = DateTime.now
-    while (strList.length == 0) {
-      val elapsedTime = new Duration(startTime, DateTime.now)
+    val startTime = DateTime.now()
+    while (strList.isEmpty) {
+      val elapsedTime = new Duration(startTime, DateTime.now())
       if (elapsedTime.getStandardSeconds > timeout) {
         throw new Exception("Read timeout!")
       }
@@ -129,8 +129,8 @@ object SerialComm {
     SerialComm(port, is, os)
   }
 
-  def close(sc: SerialComm) {
-    sc.close
+  def close(sc: SerialComm): Unit = {
+    sc.close()
   }
 }
 
@@ -143,7 +143,7 @@ class SerialOutputStream(port: SerialPort) extends OutputStream {
 class SerialInputStream(serialPort: jssc.SerialPort) extends InputStream {
   override def read(): Int = {
     val retArray = serialPort.readBytes(1)
-    if(retArray.length == 0)
+    if(retArray.isEmpty)
       -1
     else
       retArray(0)
@@ -158,7 +158,7 @@ class SerialRTU(n: Int, baudRate: Int) extends SerialPortWrapper {
     logger.info(s"SerialRTU COM${n} close")
 
     for(serialComm <- serialCommOpt)
-      serialComm.close
+      serialComm.close()
   }
 
   override def open(): Unit = {

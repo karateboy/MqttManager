@@ -64,7 +64,7 @@ class Adam4017 @Inject()(monitorTypeOp: MonitorTypeOp) extends DriverOps {
     val ret = Json.parse(json).validate[List[Adam4017Param]]
     ret.fold(
       error => {
-        Logger.error(JsError.toJson(error).toString())
+        logger.error(JsError.toJson(error).toString())
         throw new Exception(JsError.toJson(error).toString())
       },
       params => {

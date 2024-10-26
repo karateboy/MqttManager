@@ -1,8 +1,6 @@
 package models
 import play.api._
 import akka.actor._
-import play.api.Play.current
-import play.api.libs.concurrent.Akka
 import ModelHelper._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -88,8 +86,8 @@ class Adam4017Collector @Inject()(monitorTypeOp: MonitorTypeOp, system: ActorSys
             cancelable = system.scheduler.scheduleOnce(Duration(3, SECONDS), self, Collect)
           } catch {
             case ex: Exception =>
-              Logger.error(ex.getMessage, ex)
-              Logger.info("Try again 1 min later...")
+              logger.error(ex.getMessage, ex)
+              logger.info("Try again 1 min later...")
               //Try again
               cancelable = system.scheduler.scheduleOnce(Duration(1, MINUTES), self, PrepareCollect(id, com, param))
           }
@@ -130,7 +128,7 @@ class Adam4017Collector @Inject()(monitorTypeOp: MonitorTypeOp, system: ActorSys
       }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
-      Logger.info(s"$self => $state")
+      logger.info(s"$self => $state")
       instrumentOp.setState(id, state)
       collectorState = state
   }
