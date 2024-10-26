@@ -109,7 +109,7 @@ class MoxaE1212Collector @Inject()
           }
 
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case Collect =>
       Future {
@@ -168,7 +168,7 @@ class MoxaE1212Collector @Inject()
               self ! ConnectHost
           }
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
       Logger.info(s"$self => $state")

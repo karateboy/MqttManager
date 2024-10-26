@@ -115,7 +115,7 @@ class Adam6017Collector @Inject()
               cancelable = context.system.scheduler.scheduleOnce(Duration(1, MINUTES), self, ConnectHost)
           }
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case Collect =>
       Future {
@@ -153,7 +153,7 @@ class Adam6017Collector @Inject()
               self ! ConnectHost
           }
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
       Logger.info(s"$self => $state")

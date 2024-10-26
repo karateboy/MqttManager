@@ -143,7 +143,7 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
     if (docs.nonEmpty) {
       dataFile.delete()
       val f = recordOp.upsertManyRecord(docs = docs)(recordOp.HourCollection)
-      f onFailure (errorHandler)
+      f.failed.foreach (errorHandler)
       f onComplete ({
         case Success(result) =>
           Logger.info(s"Import ${dataFile.getName} complete. ${result.getUpserts.size()} records upserted.")
@@ -210,9 +210,9 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
       dataFile.delete()
       val f = recordOp.upsertManyRecord(docs = docs)(recordOp.MinCollection)
 
-      f onFailure errorHandler
+      f.failed.foreach(errorHandler)
       f onComplete {
-        case Success(result) =>
+        case Success(_) =>
           Logger.info(s"Import ${dataFile.getName} complete.")
           val start = new DateTime(docs.map(_._id.time).min)
           val end = new DateTime(docs.map(_._id.time).max)
@@ -269,14 +269,14 @@ class DataImporter(monitorOp: MonitorOp, recordOp: RecordOp, sensorOp: MqttSenso
     dataFile.delete()
     Logger.info(s"Total ${docs.length} records")
     val f = recordOp.upsertManyRecord(docs = docs)(recordOp.HourCollection)
-    f onFailure (errorHandler)
-    f onComplete ({
+    f.failed.foreach (errorHandler)
+    f onComplete {
       case Success(result) =>
         Logger.info(s"Import ${dataFile.getName} complete. ${result.getUpserts.size()} records upserted.")
         self ! Complete
       case Failure(exception) =>
         Logger.error("Failed to import data", exception)
         self ! Complete
-    })
+    }
   }
 }

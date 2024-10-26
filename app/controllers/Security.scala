@@ -1,18 +1,19 @@
 package controllers
 import models.Group
+import play.api
 import play.api._
 import play.api.mvc.Security._
 import play.api.mvc._
 
+import javax.inject.Inject
 import scala.concurrent._
 
-class AuthenticatedRequest[A](val userinfo:String, request: Request[A]) extends WrappedRequest[A](request)
 case class UserInfo(id:String, name:String, group:String, isAdmin:Boolean)
-object Security {
-  val idKey = "ID"
-  val nameKey = "Name"
-  val adminKey = "Admin"
-  val groupKey = "Group"
+class Security @Inject()(cc: ControllerComponents, implicit val ec: ExecutionContext) extends AbstractController(cc) {
+  private val idKey = "ID"
+  private val nameKey = "Name"
+  private val adminKey = "Admin"
+  private val groupKey = "Group"
 
   
 
@@ -26,14 +27,9 @@ object Security {
     }yield
       UserInfo(id, name, group, admin.toBoolean)
 
-    //User("sales@wecc.com.tw", "abc123", "Aragorn", true, Some(groupOp.PLATFORM_ADMIN)
-    Some(userInfo.getOrElse(UserInfo("sales@wecc.com.tw", "Aragorn", Group.PLATFORM_ADMIN, true)))
+    Some(userInfo.getOrElse(UserInfo("sales@wecc.com.tw", "Aragorn", Group.PLATFORM_ADMIN, isAdmin = true)))
   }
-  
-  def onUnauthorized(request: RequestHeader) = {
-    Results.Unauthorized
-  }
-  
+
   //def invokeBlock[A](request: Request[A], block: (AuthenticatedRequest[A]) => Future[Result]) = {
   //  AuthenticatedBuilder(getUserinfo _, onUnauthorized)
   //})
@@ -44,15 +40,17 @@ object Security {
   //  }
   // }
   
-  def setUserinfo[A](request: Request[A], userInfo:UserInfo)={
+  def setUserinfo[A](request: Request[A], userInfo:UserInfo): (String, String) ={
     request.session + 
-      (idKey->userInfo.id.toString()) + (adminKey->userInfo.isAdmin.toString()) + 
-      (nameKey->userInfo.name) + (groupKey -> userInfo.group)
+      idKey->userInfo.id +
+      adminKey->userInfo.isAdmin.toString +
+      nameKey->userInfo.name + groupKey -> userInfo.group
   }
   
   def getUserInfo[A]()(implicit request:Request[A]):Option[UserInfo]={
     getUserinfo(request)
   }
   
-  def Authenticated = new AuthenticatedBuilder(getUserinfo, onUnauthorized)
+  def Authenticated: AuthenticatedBuilder[UserInfo]
+  = new AuthenticatedBuilder(userinfo = getUserinfo, defaultParser = parse.defaultBodyParser)
 }

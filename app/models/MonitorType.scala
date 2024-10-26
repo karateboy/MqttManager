@@ -198,12 +198,12 @@ class MonitorTypeOp @Inject()(mongoDB: MongoDB, alarmOp: AlarmOp, groupOp: Group
 
   private def signalType(_id: String, desp: String) = {
     signalOrder += 1
-    MonitorType(_id, desp, "N/A", 0, signalOrder, true)
+    MonitorType(_id, desp, "N/A", 0, signalOrder, signalType = true)
   }
 
   def getGroupMapAsync(groupID: String): Future[Map[String, MonitorType]] = {
     val f = collection.find(Filters.equal("group", groupID)).toFuture()
-    f onFailure errorHandler()
+    f.failed.foreach(errorHandler())
     var groupMap = map
     for(groupMtList<-f) yield {
       groupMtList.foreach{
@@ -255,7 +255,7 @@ class MonitorTypeOp @Inject()(mongoDB: MongoDB, alarmOp: AlarmOp, groupOp: Group
 
       val f = collection.bulkWrite(updateModels, BulkWriteOptions().ordered(false)).toFuture()
 
-      f.onFailure(errorHandler)
+      f.failed.foreach(errorHandler)
       f.onComplete { x =>
         refreshMtv
       }
@@ -265,7 +265,7 @@ class MonitorTypeOp @Inject()(mongoDB: MongoDB, alarmOp: AlarmOp, groupOp: Group
     for (colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(colName)) { // New
         val f = mongoDB.database.createCollection(colName).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
         waitReadyResult(f)
       }
     }
@@ -333,10 +333,7 @@ class MonitorTypeOp @Inject()(mongoDB: MongoDB, alarmOp: AlarmOp, groupOp: Group
 
   private def newMonitorType(mt: MonitorType): Unit = {
     val f = collection.insertOne(mt).toFuture()
-    f.onSuccess({
-      case x =>
-        refreshMtv
-    })
+    f.foreach(_ => refreshMtv)
   }
 
   def allMtvList: List[String] = mtvList ++ signalMtvList
@@ -355,7 +352,7 @@ class MonitorTypeOp @Inject()(mongoDB: MongoDB, alarmOp: AlarmOp, groupOp: Group
     import org.mongodb.scala.model.ReplaceOptions
 
     val f = collection.replaceOne(Filters.equal("_id", mt._id), mt, ReplaceOptions().upsert(true)).toFuture()
-    f.onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 

@@ -11,13 +11,19 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class Realtime @Inject()
-(monitorTypeOp: MonitorTypeOp, dataCollectManagerOp: DataCollectManagerOp,
- monitorStatusOp: MonitorStatusOp, groupOp: GroupOp, recordOp: RecordOp, userOp: UserOp) extends Controller {
+(monitorTypeOp: MonitorTypeOp,
+ dataCollectManagerOp: DataCollectManagerOp,
+ monitorStatusOp: MonitorStatusOp,
+ groupOp: GroupOp,
+ recordOp: RecordOp,
+ userOp: UserOp,
+ security: Security,
+ cc: ControllerComponents) extends AbstractController(cc) {
   val overTimeLimit = 6
 
   case class MonitorTypeStatus(_id: String, desp: String, value: String, unit: String, instrument: String, status: String, classStr: Seq[String], order: Int)
 
-  def MonitorTypeStatusList(): Action[AnyContent] = Security.Authenticated.async {
+  def MonitorTypeStatusList(): Action[AnyContent] = security.Authenticated.async {
     implicit request =>
       val groupID = request.user.group
       val groupMtMap = waitReadyResult(monitorTypeOp.getGroupMapAsync(groupID))
@@ -40,7 +46,7 @@ class Realtime @Inject()
 
               if (recordOpt.isDefined) {
                 val record = recordOpt.get
-                val duration = new Duration(record.time, DateTime.now())
+                val duration = new Duration(new DateTime(record.time), DateTime.now())
                 val (overInternal, overLaw) = monitorTypeOp.overStd(mt, record.value, groupMtMap)
                 val status = if (duration.getStandardSeconds <= overTimeLimit)
                   monitorStatusOp.map(record.status).desp
@@ -65,7 +71,7 @@ class Realtime @Inject()
   case class MtSummary(mt: String, max: Option[Double], normal:Boolean)
   case class RealtimeSummary(mtSummaries: Seq[MtSummary], connected: Int, disconnected: Int)
 
-  def realtimeSummary(): Action[AnyContent] = Security.Authenticated.async {
+  def realtimeSummary(): Action[AnyContent] = security.Authenticated.async {
     implicit request =>
       val userInfo = request.user
       val groupID = userInfo.group

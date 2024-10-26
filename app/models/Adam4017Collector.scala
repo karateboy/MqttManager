@@ -95,7 +95,7 @@ class Adam4017Collector @Inject()(monitorTypeOp: MonitorTypeOp, system: ActorSys
           }
 
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case Collect =>
       Future {
@@ -127,7 +127,7 @@ class Adam4017Collector @Inject()(monitorTypeOp: MonitorTypeOp, system: ActorSys
             cancelable = system.scheduler.scheduleOnce(scala.concurrent.duration.Duration(3, SECONDS), self, Collect)
           }
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
       Logger.info(s"$self => $state")

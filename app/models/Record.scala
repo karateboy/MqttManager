@@ -5,7 +5,7 @@ import models.ModelHelper._
 import org.mongodb.scala._
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonArray, BsonInt32}
-import org.mongodb.scala.result.DeleteResult
+import org.mongodb.scala.result.{DeleteResult, InsertManyResult, UpdateResult}
 import play.api._
 
 import java.util.Date
@@ -18,13 +18,14 @@ object RecordList {
   def apply(time: Date, mtDataList: Seq[MtRecord], monitor: String): RecordList =
     RecordList(mtDataList, RecordListID(time, monitor))
 }
+
 case class MonitorRecord(time: Date, mtDataList: Seq[MtRecord], _id: String, var location: Option[Seq[Double]],
                          count: Option[Int], pm25Max: Option[Double], pm25Min: Option[Double],
                          var shortCode: Option[String], var code: Option[String], var tags: Option[Seq[String]],
                          var locationDesc: Option[String])
 
 case class RecordList(var mtDataList: Seq[MtRecord], _id: RecordListID) {
-  def mtMap = {
+  def mtMap: Map[String, MtRecord] = {
     val pairs =
       mtDataList map { data => data.mtName -> data }
     pairs.toMap
@@ -34,17 +35,17 @@ case class RecordList(var mtDataList: Seq[MtRecord], _id: RecordListID) {
 
 case class RecordListID(time: Date, monitor: String)
 
-case class Record(time: DateTime, value: Double, status: String, monitor: String)
+case class Record(time: Date, value: Double, status: String, monitor: String)
 
 import javax.inject._
 
 @Singleton
-class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitorOp: MonitorOp) {
+class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
 
   import org.mongodb.scala.model._
   import play.api.libs.json._
 
-  implicit val writer = Json.writes[Record]
+  implicit val writer: OWrites[Record] = Json.writes[Record]
 
   val HourCollection = "hour_data"
   val MinCollection = "min_data"
@@ -55,23 +56,23 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
   import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
 
-  val codecRegistry = fromRegistries(fromProviders(classOf[RecordList], classOf[MtRecord], classOf[RecordListID]), DEFAULT_CODEC_REGISTRY)
+  private val codecRegistry = fromRegistries(fromProviders(classOf[RecordList], classOf[MtRecord], classOf[RecordListID]), DEFAULT_CODEC_REGISTRY)
 
-  def init() {
+  def init(): Unit = {
     for (colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(HourCollection)) {
         val f = mongoDB.database.createCollection(HourCollection).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
       }
 
       if (!colNames.contains(MinCollection)) {
         val f = mongoDB.database.createCollection(MinCollection).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
       }
 
       if (!colNames.contains(SecCollection)) {
         val f = mongoDB.database.createCollection(SecCollection).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
       }
     }
   }
@@ -81,35 +82,35 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
   getCollection(HourCollection).createIndex(Indexes.descending("_id.monitor", "_id.time"), new IndexOptions().unique(true)).toFuture()
   getCollection(MinCollection).createIndex(Indexes.descending("_id.monitor", "_id.time"), new IndexOptions().unique(true)).toFuture()
 
-  init
+  init()
 
-  def toRecordList(dt: DateTime, dataList: List[(String, (Double, String))], monitor: String = Monitor.SELF_ID) = {
+  def toRecordList(dt: DateTime, dataList: List[(String, (Double, String))], monitor: String = Monitor.SELF_ID): RecordList = {
     val mtDataList = dataList map { t => MtRecord(t._1, t._2._1, t._2._2) }
     RecordList(mtDataList, RecordListID(dt, monitor))
   }
 
-  def insertManyRecord(docs: Seq[RecordList])(colName: String) = {
+  def insertManyRecord(docs: Seq[RecordList])(colName: String): Future[InsertManyResult] = {
     val col = getCollection(colName)
     val f = col.insertMany(docs).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex: Exception => Logger.error(ex.getMessage, ex)
     })
     f
   }
 
-  def upsertRecord(doc: RecordList)(colName: String) = {
+  def upsertRecord(doc: RecordList)(colName: String): Future[UpdateResult] = {
     import org.mongodb.scala.model.ReplaceOptions
 
     val col = getCollection(colName)
 
     val f = col.replaceOne(Filters.equal("_id", RecordListID(doc._id.time, doc._id.monitor)), doc, ReplaceOptions().upsert(true)).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex: Exception => Logger.error(ex.getMessage, ex)
     })
     f
   }
 
-  def updateRecordStatus(dt: Long, mt: String, status: String, monitor: String = Monitor.SELF_ID)(colName: String) = {
+  def updateRecordStatus(dt: Long, mt: String, status: String, monitor: String = Monitor.SELF_ID)(colName: String): Future[UpdateResult] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Updates._
 
@@ -118,14 +119,14 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
     val f = col.updateOne(
       and(equal("_id", RecordListID(new DateTime(dt), monitor)),
         equal("mtDataList.mtName", mt)), set("mtDataList.$.status", status)).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex: Exception => Logger.error(ex.getMessage, ex)
     })
     f
   }
 
   def getRecordMap(colName: String)
-                  (monitor: String, mtList: Seq[String], startTime: DateTime, endTime: DateTime) = {
+                  (monitor: String, mtList: Seq[String], startTime: DateTime, endTime: DateTime): Map[String, Seq[Record]] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Sorts._
 
@@ -181,7 +182,8 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
     Map(pairs: _*)
   }
 
-  def getCollection(colName: String) = mongoDB.database.getCollection[RecordList](colName).withCodecRegistry(codecRegistry)
+  def getCollection(colName: String): MongoCollection[RecordList]
+  = mongoDB.database.getCollection[RecordList](colName).withCodecRegistry(codecRegistry)
 
   implicit val mtRecordWrite = Json.writes[MtRecord]
   implicit val idWrite = Json.writes[RecordListID]
@@ -197,16 +199,6 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
       .sort(ascending("_id.time")).toFuture()
   }
 
-  def getRecordWithLimitFuture(colName: String)(startTime: DateTime, endTime: DateTime, limit: Int, monitor: String = Monitor.SELF_ID): Future[Seq[RecordList]] = {
-    import org.mongodb.scala.model.Filters._
-    import org.mongodb.scala.model.Sorts._
-
-    val col = getCollection(colName)
-    col.find(and(equal("_id.monitor", monitor), gte("_id.time", startTime.toDate), lt("_id.time", endTime.toDate)))
-      .limit(limit).sort(ascending("_id.time")).toFuture()
-
-  }
-
   def getLatestRecordFuture(colName: String)(monitor: String): Future[Seq[RecordList]] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Sorts._
@@ -217,7 +209,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
 
   }
 
-  def getLatestRecordWithOldestLimitFuture(colName: String)(monitor: String, oldest:Date): Future[Seq[RecordList]] = {
+  def getLatestRecordWithOldestLimitFuture(colName: String)(monitor: String, oldest: Date): Future[Seq[RecordList]] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Sorts._
 
@@ -227,11 +219,11 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
 
   }
 
-  def cleanupOldData(colName: String)() = {
+  def cleanupOldData(colName: String)(): Future[DeleteResult] = {
     val col = getCollection(colName)
     val twoMonthBefore = DateTime.now().minusMonths(2).toDate
-    val f  = col.deleteMany(Filters.lt("_id.time", twoMonthBefore)).toFuture()
-    f onFailure(errorHandler())
+    val f = col.deleteMany(Filters.lt("_id.time", twoMonthBefore)).toFuture()
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -247,7 +239,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
       Document("$arrayElemAt" -> bsonArray)))
   }
 
-  def addMtDataStage(mt:String): Bson = {
+  def addMtDataStage(mt: String): Bson = {
     val filterDoc = Document("$filter" -> Document(
       "input" -> "$mtDataList",
       "as" -> "mtData",
@@ -312,11 +304,11 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
     val codecRegistry = fromRegistries(fromProviders(classOf[MonitorRecord], classOf[MtRecord], classOf[RecordListID]), DEFAULT_CODEC_REGISTRY)
     val col = mongoDB.database.getCollection[MonitorRecord](colName).withCodecRegistry(codecRegistry)
     col.aggregate(Seq(sortFilter, timeFrameFilter, monitorFilter, addPm25DataStage,
-      addPm25ValueStage, latestFilter, constantFilter, projectStage))
+        addPm25ValueStage, latestFilter, constantFilter, projectStage))
       .allowDiskUse(true).toFuture()
   }
 
-  def getLast30MinMonitorTypeConstantSensor(colName: String, mt:String): Future[Seq[MonitorRecord]] = {
+  def getLast30MinMonitorTypeConstantSensor(colName: String, mt: String): Future[Seq[MonitorRecord]] = {
     import org.mongodb.scala.model.Projections._
     import org.mongodb.scala.model.Sorts._
 
@@ -341,14 +333,14 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
     val codecRegistry = fromRegistries(fromProviders(classOf[MonitorRecord], classOf[MtRecord], classOf[RecordListID]), DEFAULT_CODEC_REGISTRY)
     val col = mongoDB.database.getCollection[MonitorRecord](colName).withCodecRegistry(codecRegistry)
     col.aggregate(Seq(sortFilter, timeFrameFilter, monitorFilter, addMtDataStage(mt),
-      addMtValueStage, latestFilter, constantFilter, projectStage))
+        addMtValueStage, latestFilter, constantFilter, projectStage))
       .allowDiskUse(true).toFuture()
   }
 
   def delete45dayAgoRecord(colName: String): Future[DeleteResult] = {
-    val date = DateTime.now().withMillisOfDay(0).minusDays(45).toDate()
+    val date = DateTime.now().withMillisOfDay(0).minusDays(45).toDate
     val f = getCollection(colName).deleteMany(Filters.lt("time", date)).toFuture()
-    f onFailure (errorHandler)
+    f.failed.foreach (errorHandler)
     f
   }
 
@@ -360,18 +352,8 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp, monitor
           doc, ReplaceOptions().upsert(true))
     }
     val f = col.bulkWrite(writeModels, BulkWriteOptions().ordered(false)).toFuture()
-    f onFailure errorHandler()
+    f.failed.foreach(errorHandler())
     f
   }
 
-  def lowerH2SOver150(colName: String) = {
-    import org.mongodb.scala.model.Filters._
-    import org.mongodb.scala.model.Updates._
-
-    val col = getCollection(colName)
-    val f = col.updateMany(Filters.equal("mtDataList.mtName", "H2S"),
-      set("mtDataList.$.value", 149.9)).toFuture()
-    f onFailure errorHandler()
-    f
-  }
 }

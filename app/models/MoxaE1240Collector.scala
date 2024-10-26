@@ -74,7 +74,7 @@ class MoxaE1240Collector @Inject()
 
   import scala.concurrent.{Future, blocking}
 
-  def receive = handler(MonitorStatus.NormalStat, None)
+  def receive: Receive = handler(MonitorStatus.NormalStat, None)
 
   def handler(collectorState: String, masterOpt: Option[ModbusMaster]): Receive = {
     case ConnectHost =>
@@ -103,7 +103,7 @@ class MoxaE1240Collector @Inject()
           }
 
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case Collect =>
       Future {
@@ -136,7 +136,7 @@ class MoxaE1240Collector @Inject()
               self ! ConnectHost
           }
         }
-      } onFailure errorHandler
+      }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
       Logger.info(s"$self => $state")

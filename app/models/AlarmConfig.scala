@@ -11,7 +11,7 @@ import scala.language.implicitConversions
 
 case class AlarmConfig(enable:Boolean, statusFilter:Seq[String])
 object AlarmConfig {
-  val defaultConfig = AlarmConfig(false, Seq.empty[String])
+  val defaultConfig = AlarmConfig(enable = false, Seq.empty[String])
   implicit val acRead = Json.reads[AlarmConfig]
   implicit val acWrite = Json.writes[AlarmConfig]
   
@@ -21,8 +21,8 @@ object AlarmConfig {
       Document("enable"->config.enable, "statusFilter"->config.statusFilter).toBsonDocument
     }
   }
-  implicit def toAlarmConfig(doc:BsonDocument)={
-    if(doc.get("enable").isBoolean() && doc.get("statusFilter").isArray()){
+  implicit def toAlarmConfig(doc:BsonDocument): Option[AlarmConfig] ={
+    if(doc.get("enable").isBoolean && doc.get("statusFilter").isArray){
       val enable = doc.get("enable").asBoolean().getValue
       val bsonStatusFilter = doc.get("statusFilter").asArray().getValues
       val statusFilter = bsonStatusFilter.map { x => x.asString().getValue }

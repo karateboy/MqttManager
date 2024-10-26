@@ -28,13 +28,17 @@ case class DailyReport(columnNames: Seq[String], hourRows: Seq[RowData], statRow
 case class MonthlyHourReport(columnNames: Seq[String], rows: Seq[RowData], statRows: Seq[StatRow])
 
 @Singleton
-class Report @Inject()(monitorTypeOp: MonitorTypeOp, recordOp: RecordOp, query: Query) extends Controller {
+class Report @Inject()(monitorTypeOp: MonitorTypeOp,
+                       recordOp: RecordOp,
+                       query: Query,
+                       cc: ControllerComponents,
+                       security: Security) extends AbstractController(cc) {
   implicit val w3 = Json.writes[CellData]
   implicit val w2 = Json.writes[StatRow]
   implicit val w1 = Json.writes[RowData]
   implicit val w = Json.writes[DailyReport]
 
-  def getMonitorReport(reportTypeStr: String, startNum: Long, outputTypeStr: String) = Security.Authenticated {
+  def getMonitorReport(reportTypeStr: String, startNum: Long, outputTypeStr: String): Action[AnyContent] = security.Authenticated {
     implicit request =>
         val groupID = request.user.group
         val groupMtMap = waitReadyResult(monitorTypeOp.getGroupMapAsync(groupID))
@@ -52,7 +56,7 @@ class Report @Inject()(monitorTypeOp: MonitorTypeOp, recordOp: RecordOp, query: 
             val mtTimeMap: Map[String, Map[DateTime, Record]] = periodMap.map { pair =>
               val k = pair._1
               val v = pair._2
-              k -> Map(v.map { r => r.time -> r }: _*)
+              k -> Map(v.map { r => new DateTime(r.time) -> r }: _*)
             }
             val statMap: Map[String, Map[DateTime, Stat]] = query.getPeriodStatReportMap(periodMap, 1.day)(startDate, startDate + 1.day)
 
@@ -252,7 +256,7 @@ class Report @Inject()(monitorTypeOp: MonitorTypeOp, recordOp: RecordOp, query: 
     }
   }
 
-  def monthlyHourReport(monitorTypeStr: String, startDate: Long, outputTypeStr: String) = Security.Authenticated {
+  def monthlyHourReport(monitorTypeStr: String, startDate: Long, outputTypeStr: String) = security.Authenticated {
     implicit request =>
       val groupID = request.user.group
       val groupMtMap = waitReadyResult(monitorTypeOp.getGroupMapAsync(groupID))
@@ -262,11 +266,11 @@ class Report @Inject()(monitorTypeOp: MonitorTypeOp, recordOp: RecordOp, query: 
       val title = "月份時報表"
       if (outputType == OutputType.html || outputType == OutputType.pdf) {
         val recordList = recordOp.getRecordMap(recordOp.HourCollection)(Monitor.SELF_ID, List(mt), start, start + 1.month)(mt)
-        val timePair = recordList.map { r => r.time -> r }
+        val timePair = recordList.map { r => new DateTime(r.time) -> r }
         val timeMap = Map(timePair: _*)
 
         def getHourPeriodStat(records: Seq[Record], hourList: List[DateTime]) = {
-          if (records.length == 0)
+          if (records.isEmpty)
             Stat(None, None, None, 0, 0, 0)
           else {
             val values = records.map { r => r.value }

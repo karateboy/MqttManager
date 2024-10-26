@@ -1,14 +1,6 @@
 package controllers
-import play.api._
-import play.api.mvc._
-import play.api.Logger
-import models._
-import com.github.nscala_time.time.Imports._
-import models.ModelHelper._
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import models.ModelHelper._
-import play.api.Play.current
+import play.api.libs.json._
 
 object Highchart {
   case class XAxis(categories: Option[Seq[String]], gridLineWidth: Option[Int]=None, tickInterval:Option[Int]=None)

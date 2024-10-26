@@ -180,7 +180,7 @@ class DataCollectManagerOp @Inject()(@Named("dataCollectManager") manager: Actor
         l
       })
 
-      lb.append((r.time, r.value))
+      lb.append((new DateTime(r.time), r.value))
     }
 
     val mtDataList = calculateHourAvgMap(mtMap, alwaysValid)
@@ -415,7 +415,7 @@ class DataCollectManager @Inject()
     context.system.scheduler.schedule(Duration(postSeconds, SECONDS), Duration(1, MINUTES), self, CalculateData)
   }
 
-  instrumentOp.getInstrumentList().foreach {
+  instrumentOp.getInstrumentList.foreach {
     inst =>
       if (inst.active)
         self ! StartInstrument(inst)
@@ -555,7 +555,7 @@ class DataCollectManager @Inject()
               val currentMap = latestDataMap.getOrElse(data.mt, Map.empty[String, Record])
               val filteredMap = currentMap.filter { kv =>
                 val r = kv._2
-                r.time >= DateTime.now() - 6.second
+                new DateTime(r.time) >= DateTime.now() - 6.second
               }
 
               (data.mt -> (filteredMap ++ Map(instId -> Record(now, data.value, data.status, Monitor.SELF_ID))))
@@ -568,7 +568,7 @@ class DataCollectManager @Inject()
     case CalculateData => {
       import scala.collection.mutable.ListBuffer
 
-      def flushSecData(recordMap: Map[String, Map[String, ListBuffer[(DateTime, Double)]]]) {
+      def flushSecData(recordMap: Map[String, Map[String, ListBuffer[(DateTime, Double)]]]): Unit = {
         import scala.collection.mutable.Map
 
         if (recordMap.nonEmpty) {
@@ -702,7 +702,7 @@ class DataCollectManager @Inject()
       val current = DateTime.now().withSecondOfMinute(0).withMillisOfSecond(0)
       if (monitorOp.hasSelfMonitor) {
         val f = calculateMinData(current)
-        f onFailure errorHandler
+        f.failed.foreach(errorHandler)
         f.andThen({
           case Success(x) =>
             if (current.getMinuteOfHour == 0) {
@@ -796,7 +796,7 @@ class DataCollectManager @Inject()
       // It is tricky less than 90% is calculated based on beginnning of today.
       val sensorCountFuture = recordOp
         .getSensorCount(recordOp.MinCollection)(today)
-      sensorCountFuture onFailure errorHandler("sensorCountFuture failed")
+      sensorCountFuture.failed.foreach(errorHandler("sensorCountFuture failed"))
 
       for (ret: Seq[MonitorRecord] <- sensorCountFuture) {
         val targetMonitorIDSet = monitorOp.mvList.toSet
@@ -850,7 +850,7 @@ class DataCollectManager @Inject()
               EmailTarget(email, myGroup.name, myGroup.monitors)
         }
         val f = errorReportOp.sendEmail(alertEmails)
-        f onFailure errorHandler
+        f.failed.foreach(errorHandler)
       }
 
     case GetLatestData =>
@@ -866,7 +866,7 @@ class DataCollectManager @Inject()
         val filteredRecordMap = instRecordMap.filter {
           kv =>
             val r = kv._2
-            r.time >= DateTime.now() - timeout
+            new DateTime(r.time) >= DateTime.now() - timeout
         }
 
         if (monitorTypeOp.map(mt).measuringBy.isEmpty) {

@@ -25,7 +25,7 @@ class ImageOp @Inject() (mongoDB: MongoDB) {
 
   def getImage(objId: ObjectId): Future[Image] = {
     val f = collection.find(Filters.eq("_id", objId)).first().toFuture()
-    f.onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 }

@@ -39,29 +39,29 @@ class AlarmOp @Inject()(mongoDB: MongoDB) {
   def instStr(id: String) = s"I:$id"
   def Src() = "S:System"
 
-  implicit val write = Json.writes[Alarm]
-  implicit val jsonWrite = Json.writes[Alarm2JSON]
+  implicit val write: OWrites[Alarm] = Json.writes[Alarm]
+  implicit val jsonWrite: OWrites[Alarm2JSON] = Json.writes[Alarm2JSON]
 
   import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
   import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
 
-  val codecRegistry = fromRegistries(fromProviders(classOf[Alarm]), DEFAULT_CODEC_REGISTRY)
+  private val codecRegistry = fromRegistries(fromProviders(classOf[Alarm]), DEFAULT_CODEC_REGISTRY)
   val colName = "alarms"
-  val collection = mongoDB.database.getCollection[Alarm](colName).withCodecRegistry(codecRegistry)
+  private val collection = mongoDB.database.getCollection[Alarm](colName).withCodecRegistry(codecRegistry)
 
 
-  def init() {
+  def init(): Unit = {
     for (colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(colName)) { // New
         val f = mongoDB.database.createCollection(colName).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
         waitReadyResult(f)
       }
     }
   }
 
-  init
+  init()
 
   import org.mongodb.scala.model.Filters._
   import org.mongodb.scala.model.Sorts._
@@ -72,14 +72,14 @@ class AlarmOp @Inject()(mongoDB: MongoDB) {
       gte("level", level),
       regex("src", src)
     )).sort(ascending("time")).toFuture()
-    f onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 
 
   def getAlarmsFuture(start: DateTime, end: DateTime): Future[Seq[Alarm]] = {
     val f = collection.find(and(gte("time", start.toDate), lt("time", end.toDate))).sort(ascending("time")).toFuture()
-    f onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 
@@ -94,7 +94,7 @@ class AlarmOp @Inject()(mongoDB: MongoDB) {
       (count: Long) => {
         if (count == 0){
           val f = collection.insertOne(ar).toFuture()
-          f onFailure(errorHandler)
+          f.failed.foreach(errorHandler)
         }
       }, // onNext
       (ex: Throwable) => Logger.error("Alarm failed:", ex), // onError

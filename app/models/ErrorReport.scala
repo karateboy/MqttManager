@@ -52,24 +52,24 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
     val colNames = waitReadyResult(mongoDB.database.listCollectionNames().toFuture())
     if (!colNames.contains(colName)) {
       val f = mongoDB.database.createCollection(colName).toFuture()
-      f.onFailure(errorHandler)
+      f.failed.foreach(errorHandler)
     }
   }
 
-  def upgrade(): Unit ={
+  private def upgrade(): Unit ={
     val filter = Filters.not(Filters.exists("inspections"))
     val update = Updates.combine(Updates.set("inspections", Seq.empty[ErrorAction]),
       Updates.set("actions", Seq.empty[ErrorAction]))
     val f = collection.updateMany(filter, update).toFuture()
-    f onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
   }
 
-  init
+  init()
   upgrade()
 
-  def upsert(report: ErrorReport) = {
+  def upsert(report: ErrorReport): Future[UpdateResult] = {
     val f = collection.replaceOne(Filters.equal("_id", report._id), report, ReplaceOptions().upsert(true)).toFuture()
-    f.onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 
@@ -77,7 +77,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   private def addNoErrorCodeSensor1(date: Date, sensorID: String): Future[UpdateResult] = {
     val updates = Updates.addToSet("noErrorCode", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -85,7 +85,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   private def addErrorInspection1(date: Date, inspection:ErrorAction): Future[UpdateResult] = {
     val updates = Updates.push("inspections", inspection)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -94,7 +94,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
     val filter = Filters.equal("_id", date)
     val updates = Updates.push("actions", action)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -103,7 +103,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def removeNoErrorCodeSensor1(date: Date, sensorID: String) = {
     val updates = Updates.pull("noErrorCode", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -112,7 +112,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def addPowerErrorSensor1(date: Date, sensorID: String) = {
     val updates = Updates.addToSet("powerError", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -121,7 +121,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def removePowerErrorSensor1(date: Date, sensorID: String) = {
     val updates = Updates.pull("powerError", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -155,7 +155,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def addConstantSensor1(date: Date, sensorID: String) = {
     val updates = Updates.addToSet("constant", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -163,7 +163,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def addH2SConstantSensor1(date: Date, sensorID: String) = {
     val updates = Updates.addToSet("constantH2S", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -171,7 +171,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def addNH3ConstantSensor1(date: Date, sensorID: String) = {
     val updates = Updates.addToSet("constantNH3", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -179,7 +179,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def addDisconnectedSensor1(date: Date, sensorID: String) = {
     val updates = Updates.addToSet("disconnect", sensorID)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
   def addLessThan90Sensor = initBefore(addLessThan90Sensor1) _
@@ -189,21 +189,21 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
       Updates.addEachToSet("ineffective", effectRateList: _*),
       Updates.set("dailyChecked", true))
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
   def setConstantRecordTime(date: Date, constantRecordTime:Long) = {
     val updates = Updates.set("constantRecordTime", constantRecordTime)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
   def setDisconnectRecordTime(date: Date, disconnectRecordTime:Long) = {
     val updates = Updates.set("disconnectRecordTime", disconnectRecordTime)
     val f = collection.updateOne(Filters.equal("_id", date), updates).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
@@ -211,7 +211,7 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
   def sendEmail(emailTargetList: Seq[EmailTarget]) = {
     val today = DateTime.now.withMillisOfDay(0)
     val f = get(today.toDate)
-    f onFailure errorHandler()
+    f.failed.foreach(errorHandler())
     for (reports <- f) yield {
       for (emailTarget <- emailTargetList) {
         Logger.info(s"send report to ${emailTarget.toString}")
@@ -253,14 +253,14 @@ class ErrorReportOp @Inject()(mongoDB: MongoDB, mailerClient: MailerClient, moni
 
   def get(_id: Date) = {
     val f = collection.find(Filters.equal("_id", _id)).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
   def get(start:Date, end:Date)= {
     val filter = Filters.and(Filters.gte("_id", start), Filters.lte("_id", end))
     val f = collection.find(filter).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 }

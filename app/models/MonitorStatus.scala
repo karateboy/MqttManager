@@ -175,29 +175,23 @@ class MonitorStatusOp @Inject()(mongoDB: MongoDB){
   def init() {
     def insertDefaultStatus {
       val f = collection.insertMany(defaultStatus.map { toDocument }).toFuture()
-      f.onFailure(errorHandler)
-      f.onSuccess({
-        case _=>
-          refreshMap
-      })
+      f.failed.foreach(errorHandler)
+      f.foreach(_ => refreshMap())
     }
 
     for(colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(collectionName)) {
         val f = mongoDB.database.createCollection(collectionName).toFuture()
-        f.onFailure(errorHandler)
-        f.onSuccess({
-          case _ =>
-            insertDefaultStatus
-        })
+        f.failed.foreach(errorHandler)
+        f.foreach(_ => insertDefaultStatus)
       }
     }
   }
-  init
+  init()
 
-  def msList = {
+  private def msList: Seq[MonitorStatus] = {
     val f = collection.find().toFuture()
-    f.onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     waitReadyResult(f).map { toMonitorStatus }
   }
 

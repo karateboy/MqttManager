@@ -5,12 +5,15 @@ import play.api.libs.functional.syntax._
 import com.github.nscala_time.time.Imports._
 import com.github.nscala_time.time._
 import models.ModelHelper._
+
+import java.util.Date
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 case class CalibrationJSON(monitorType: String, startTime: Long, endTime: Long, zero_val: Option[Double],
                            span_std: Option[Double], span_val: Option[Double])
 
-case class Calibration(monitorType: String, startTime: DateTime, endTime: DateTime, zero_val: Option[Double],
+case class Calibration(monitorType: String, startTime: Date, endTime: Date, zero_val: Option[Double],
                        span_std: Option[Double], span_val: Option[Double]) {
   def zero_dev = zero_val.map(Math.abs)
   def span_dev =
@@ -21,7 +24,7 @@ case class Calibration(monitorType: String, startTime: DateTime, endTime: DateTi
     yield s_dev / std *100
 
   def toJSON = {
-    CalibrationJSON(monitorType.toString, startTime.getMillis, endTime.getMillis, zero_val,
+    CalibrationJSON(monitorType, startTime.getTime, endTime.getTime, zero_val,
       span_std, span_val)
   }
 }
@@ -38,11 +41,11 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
       for (colNames <- mongoDB.database.listCollectionNames().toFuture()) {
         if (!colNames.contains(collectionName)) {
           val f = mongoDB.database.createCollection(collectionName).toFuture()
-          f.onFailure(errorHandler)
+          f.failed.foreach(errorHandler)
           f.onSuccess({
             case _ =>
               val cf = collection.createIndex(ascending("monitorType", "startTime", "endTime")).toFuture()
-              cf.onFailure(errorHandler)
+              cf.failed.foreach(errorHandler)
           })
         }
       }
@@ -52,14 +55,14 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
   implicit val writes = Json.writes[Calibration]
   implicit val jsonWrites = Json.writes[CalibrationJSON]
 
-  def toDocument(cal: Calibration) = {
+  def toDocument(cal: Calibration): Document = {
     import org.mongodb.scala.bson._
-    Document("monitorType" -> cal.monitorType, "startTime" -> (cal.startTime: BsonDateTime),
-      "endTime" -> (cal.endTime: BsonDateTime), "zero_val" -> cal.zero_val,
+    Document("monitorType" -> cal.monitorType, "startTime" -> cal.startTime,
+      "endTime" -> cal.endTime, "zero_val" -> cal.zero_val,
       "span_std" -> cal.span_std, "span_val" -> cal.span_val)
   }
 
-  def toCalibration(doc: Document) = {
+  private def toCalibration(doc: Document) = {
     import org.mongodb.scala.bson.BsonDouble
     def doublePf: PartialFunction[org.mongodb.scala.bson.BsonValue, Double] = {
       case t: BsonDouble =>
@@ -76,7 +79,7 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
     Calibration(monitorType, startTime, endTime, zero_val, span_std, span_val)
   }
 
-  def calibrationReport(start: DateTime, end: DateTime) = {
+  def calibrationReport(start: DateTime, end: DateTime): Seq[Calibration] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Projections._
     import org.mongodb.scala.model.Sorts._
@@ -86,22 +89,22 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
     docs.map { toCalibration }
   }
 
-  def calibrationReportFuture(start: DateTime, end: DateTime) = {
+  def calibrationReportFuture(start: DateTime, end: DateTime): Future[Seq[Calibration]] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Projections._
     import org.mongodb.scala.model.Sorts._
 
-    val f = collection.find(and(gte("startTime", start.toDate()), lt("startTime", end.toDate()))).sort(ascending("startTime")).toFuture()
+    val f = collection.find(and(gte("startTime", start.toDate), lt("startTime", end.toDate))).sort(ascending("startTime")).toFuture()
     for (docs <- f)
       yield docs.map { toCalibration }
   }
 
-  def calibrationReportFuture(start: DateTime) = {
+  def calibrationReportFuture(start: DateTime): Future[Seq[Calibration]] = {
     import org.mongodb.scala.model.Filters._
     import org.mongodb.scala.model.Projections._
     import org.mongodb.scala.model.Sorts._
 
-    val f = collection.find(gte("startTime", start.toDate())).sort(ascending("startTime")).toFuture()
+    val f = collection.find(gte("startTime", start.toDate)).sort(ascending("startTime")).toFuture()
     for (docs <- f)
       yield docs.map { toCalibration }
   }
@@ -111,32 +114,32 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
     import org.mongodb.scala.model.Projections._
     import org.mongodb.scala.model.Sorts._
 
-    val f = collection.find(and(equal("monitorType", mt.toString), gte("startTime", start.toDate()), lt("startTime", end.toDate()))).sort(ascending("startTime")).toFuture()
+    val f = collection.find(and(equal("monitorType", mt), gte("startTime", start.toDate), lt("startTime", end.toDate))).sort(ascending("startTime")).toFuture()
     val docs = waitReadyResult(f)
     docs.map { toCalibration }
   }
 
-  def calibrationMonthly(monitorType: String, start: DateTime) = {
+  def calibrationMonthly(monitorType: String, start: DateTime): Map[String, Calibration] = {
     val end = start + 1.month
     val report = List.empty[Calibration]
     val pairs =
       for { r <- report } yield {
-        r.startTime.toString("d") -> r
+        r.startTime.toString -> r
       }
     Map(pairs: _*)
   }
 
-  def insert(cal: Calibration) = {
+  def insert(cal: Calibration): Unit = {
     import ModelHelper._
     val f = collection.insertOne(toDocument(cal)).toFuture()
-    f onFailure ({
+    f.failed.foreach {
       case ex: Exception =>
         logException(ex)
-    })
+    }
     //f map {_=> ForwardManager.forwardCalibration}
   }
 
-  def getZeroCalibrationStyle(cal: Calibration) = {
+  def getZeroCalibrationStyle(cal: Calibration): String = {
     val styleOpt =
       for {
         zero_val <- cal.zero_val
@@ -152,7 +155,7 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
     styleOpt.getOrElse("")
   }
 
-  def getSpanCalibrationStyle(cal: Calibration) = {
+  def getSpanCalibrationStyle(cal: Calibration): String = {
     val styleOpt =
       for {
         span_dev_ratio <- cal.span_dev_ratio
@@ -168,7 +171,7 @@ class CalibrationOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp) {
     styleOpt.getOrElse("")
   }
 
-  def getResultStyle(cal: Calibration) = {
+  def getResultStyle(cal: Calibration): String = {
     val zeroStyleOpt =
       for {
         zero_val <- cal.zero_val

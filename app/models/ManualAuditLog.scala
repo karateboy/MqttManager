@@ -3,10 +3,15 @@ import play.api._
 import com.github.nscala_time.time.Imports._
 import models.ModelHelper._
 import models._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import org.mongodb.scala._
+import org.mongodb.scala.result.UpdateResult
 
-case class ManualAuditLog(dataTime: DateTime, mt: String, modifiedTime: DateTime,
+import java.util.Date
+import scala.concurrent.Future
+
+case class ManualAuditLog(dataTime: Date, mt: String, modifiedTime: Date,
                           operator: String, changedStatus: String, reason: String)
 
 case class ManualAuditLog2(dataTime: Long, mt: String, modifiedTime: Long,
@@ -21,14 +26,18 @@ class ManualAuditLogOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp)
 
   implicit val writer = Json.writes[ManualAuditLog]
   val collectionName = "auditLogs"
-  val collection = mongoDB.database.getCollection(collectionName)
-  def toDocument(al: ManualAuditLog) = {
+  val collection: MongoCollection[Document] = mongoDB.database.getCollection(collectionName)
+  def toDocument(al: ManualAuditLog): Document = {
     import org.mongodb.scala.bson._
-    Document("dataTime" -> (al.dataTime: BsonDateTime), "mt" -> monitorTypeOp.BFName(al.mt),
-      "modifiedTime" -> (al.modifiedTime: BsonDateTime), "operator" -> al.operator, "changedStatus" -> al.changedStatus, "reason" -> al.reason)
+    Document("dataTime" -> al.dataTime,
+      "mt" -> monitorTypeOp.BFName(al.mt),
+      "modifiedTime" -> al.modifiedTime,
+      "operator" -> al.operator,
+      "changedStatus" -> al.changedStatus,
+      "reason" -> al.reason)
   }
 
-  def toAuditLog(doc: Document) = {
+  private def toAuditLog(doc: Document) = {
     val dataTime = new DateTime(doc.get("dataTime").get.asDateTime().getValue)
     val mt = (doc.get("mt").get.asString().getValue)
     val modifiedTime = new DateTime(doc.get("modifiedTime").get.asDateTime().getValue)
@@ -39,7 +48,7 @@ class ManualAuditLogOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp)
     ManualAuditLog(dataTime = dataTime, mt = mt, modifiedTime = modifiedTime, operator = operator, changedStatus = changedStatus, reason = reason)
   }
 
-  def toAuditLog2(doc: Document) = {
+  private def toAuditLog2(doc: Document) = {
     val dataTime = new DateTime(doc.get("dataTime").get.asDateTime().getValue)
     val mt = (doc.get("mt").get.asString().getValue)
     val modifiedTime = new DateTime(doc.get("modifiedTime").get.asDateTime().getValue)
@@ -50,12 +59,12 @@ class ManualAuditLogOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp)
     ManualAuditLog2(dataTime = dataTime.getMillis, mt = mt, modifiedTime = modifiedTime.getMillis, operator = operator, changedStatus = changedStatus, reason = reason)
   }
 
-  def init() {
+  def init(): Unit = {
     import org.mongodb.scala.model.Indexes._
     for(colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(collectionName)) {
         val f = mongoDB.database.createCollection(collectionName).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
         f.onSuccess({
           case _ =>
             collection.createIndex(ascending("dataTime", "mt"))
@@ -63,16 +72,16 @@ class ManualAuditLogOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp)
       }
     }
   }
-  init
+  init()
 
   import org.mongodb.scala.model.Filters._
-  def upsertLog(log: ManualAuditLog) = {
+  def upsertLog(log: ManualAuditLog): Future[UpdateResult] = {
     import org.mongodb.scala.model.ReplaceOptions
     import org.mongodb.scala.bson.BsonDateTime
-    val f = collection.replaceOne(and(equal("dataTime", log.dataTime:BsonDateTime), equal("mt", monitorTypeOp.BFName(log.mt))),
+    val f = collection.replaceOne(and(equal("dataTime", log.dataTime), equal("mt", monitorTypeOp.BFName(log.mt))),
       toDocument(log), ReplaceOptions().upsert(true)).toFuture()
       
-    f.onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 

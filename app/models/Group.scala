@@ -66,7 +66,7 @@ class GroupOp @Inject()(mongoDB: MongoDB) {
     for(colNames <- mongoDB.database.listCollectionNames().toFuture()){
       if (!colNames.contains(ColName)) {
         val f = mongoDB.database.createCollection(ColName).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
         f.andThen({
           case Success(_) =>
             createDefaultGroup
@@ -110,7 +110,7 @@ class GroupOp @Inject()(mongoDB: MongoDB) {
 
   def getGroupByID(_id: String): Option[Group] = {
     val f = collection.find(equal("_id", _id)).first().toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     val group = waitReadyResult(f)
@@ -119,7 +119,7 @@ class GroupOp @Inject()(mongoDB: MongoDB) {
 
   def getAllGroups: Seq[Group] = {
     val f = collection.find().toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     waitReadyResult(f)
@@ -127,13 +127,13 @@ class GroupOp @Inject()(mongoDB: MongoDB) {
 
   def addMonitor(_id: String, monitorID:String): Future[UpdateResult] = {
     val f = collection.updateOne(Filters.equal("_id", _id), Updates.addToSet("monitors", monitorID)).toFuture()
-    f onFailure errorHandler
+    f.failed.foreach(errorHandler)
     f
   }
 
   def getGroupsByMonitorID(monitorID:String): Future[Seq[Group]] = {
     val f = collection.find(Filters.eq("monitors", monitorID)).toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     f

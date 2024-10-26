@@ -1,5 +1,7 @@
 package models
 import models.ModelHelper.errorHandler
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import play.api.libs.json.Json
 
 import javax.inject.{Inject, Singleton}
@@ -21,8 +23,8 @@ class MqttSensorOp @Inject()(mongoDB: MongoDB, groupOp: GroupOp) {
   import org.mongodb.scala.bson.codecs.Macros._
 
   val ColName = "sensors"
-  val codecRegistry = fromRegistries(fromProviders(classOf[Sensor]), DEFAULT_CODEC_REGISTRY)
-  val collection = mongoDB.database.getCollection[Sensor](ColName).withCodecRegistry(codecRegistry)
+  private val codecRegistry = fromRegistries(fromProviders(classOf[Sensor]), DEFAULT_CODEC_REGISTRY)
+  val collection: MongoCollection[Sensor] = mongoDB.database.getCollection[Sensor](ColName).withCodecRegistry(codecRegistry)
 
   import org.mongodb.scala.model._
   collection.createIndex(Indexes.descending("id"), IndexOptions().unique(true))
@@ -30,19 +32,19 @@ class MqttSensorOp @Inject()(mongoDB: MongoDB, groupOp: GroupOp) {
   collection.createIndex(Indexes.descending("topic"))
   collection.createIndex(Indexes.descending("monitor"))
 
-  def getSensorList(group:String) = {
+  def getSensorList(group:String): Future[Seq[Sensor]] = {
     val f = collection.find(Filters.eq("group", group)).toFuture()
-    f.onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
   def getAllSensorList = {
     val f = collection.find(Filters.exists("_id")).toFuture()
-    f onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
-  def getSensorMap = {
+  def getSensorMap: Future[Map[String, Sensor]] = {
     for(sensorList <- getAllSensorList) yield {
       val pairs =
         for(sensor<-sensorList) yield
@@ -54,26 +56,27 @@ class MqttSensorOp @Inject()(mongoDB: MongoDB, groupOp: GroupOp) {
 
   def getSensor(id:String): Future[Seq[Sensor]] = {
     val f = collection.find(Filters.equal("id", id)).toFuture()
-    f onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
-  def upsert(sensor:Sensor)={
+  def upsert(sensor:Sensor): Future[UpdateResult] ={
     val f = collection.replaceOne(Filters.equal("id", sensor.id), sensor, ReplaceOptions().upsert(true)).toFuture()
-    f onFailure(errorHandler)
-    groupOp.addMonitor(sensor.group, sensor.monitor) onFailure(errorHandler())
+    f.failed.foreach(errorHandler)
+    groupOp.addMonitor(sensor.group, sensor.monitor)
+      .failed.foreach(errorHandler())
     f
   }
 
-  def delete(id:String) = {
+  def delete(id:String): Future[DeleteResult] = {
     val f = collection.deleteOne(Filters.equal("id", id)).toFuture()
-    f onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 
-  def deleteByMonitor(monitor:String)  = {
+  def deleteByMonitor(monitor:String): Future[DeleteResult] = {
     val f = collection.deleteOne(Filters.equal("monitor", monitor)).toFuture()
-    f onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 }

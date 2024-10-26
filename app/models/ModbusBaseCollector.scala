@@ -360,7 +360,7 @@ abstract class ModbusBaseCollector @Inject()
         instrumentStatusOp.Status(k.key, v)
     }
 
-    val instStatus = instrumentStatusOp.InstrumentStatus(DateTime.now(), instId, isList).excludeNaN
+    val instStatus = instrumentStatusOp.InstrumentStatus(DateTime.now().toDate, instId, isList).excludeNaN
     instrumentStatusOp.log(instStatus)
   }
 

@@ -275,7 +275,7 @@ class MqttCollector2 @Inject()(monitorOp: MonitorOp, alarmOp: AlarmOp,
           monitorOp.upsert(monitor)
           val recordList = RecordList(time.toDate, mtDataList, sensor.monitor)
           val f = recordOp.upsertRecord(recordList)(recordOp.MinCollection)
-          f.onFailure(ModelHelper.errorHandler)
+          f.failed.foreach(ModelHelper.errorHandler)
           dataCollectManagerOp.checkMinDataAlarm(sensor.monitor, recordList.mtDataList, Some(sensor.group))
           // Check for groups contain it
           for(groups<-groupOp.getGroupsByMonitorID(sensor.monitor)){

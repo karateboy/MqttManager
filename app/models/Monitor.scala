@@ -1,6 +1,7 @@
 package models
 
 import models.ModelHelper._
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model._
 import play.api._
 import play.api.libs.json._
@@ -29,9 +30,9 @@ class MonitorOp @Inject()(mongoDB: MongoDB, config: Configuration, sensorOp: Mqt
   val colName = "monitors"
   mongoDB.database.createCollection(colName).toFuture()
 
-  val codecRegistry = fromRegistries(fromProviders(classOf[Monitor]), DEFAULT_CODEC_REGISTRY)
-  val collection = mongoDB.database.getCollection[Monitor](colName).withCodecRegistry(codecRegistry)
-  val hasSelfMonitor = config.getBoolean("selfMonitor").getOrElse(false)
+  private val codecRegistry = fromRegistries(fromProviders(classOf[Monitor]), DEFAULT_CODEC_REGISTRY)
+  val collection: MongoCollection[Monitor] = mongoDB.database.getCollection[Monitor](colName).withCodecRegistry(codecRegistry)
+  val hasSelfMonitor: Boolean = config.getOptional[Boolean]("selfMonitor").getOrElse(false)
 
   var map: Map[String, Monitor] = {
     val pairs =
@@ -45,7 +46,7 @@ class MonitorOp @Inject()(mongoDB: MongoDB, config: Configuration, sensorOp: Mqt
     val colNames = waitReadyResult(mongoDB.database.listCollectionNames().toFuture())
     if (!colNames.contains(colName)) {
       val f = mongoDB.database.createCollection(colName).toFuture()
-      f.onFailure(errorHandler)
+      f.failed.foreach(errorHandler)
     }
 
     val ret = waitReadyResult(collection.countDocuments(Filters.equal("_id", SELF_ID)).toFuture())
@@ -79,24 +80,21 @@ class MonitorOp @Inject()(mongoDB: MongoDB, config: Configuration, sensorOp: Mqt
     map = map + (m._id -> m)
 
     val f = collection.insertOne(m).toFuture()
-    f.onFailure(errorHandler)
-    f.onSuccess({
-      case _: Seq[t] =>
-    })
+    f.failed.foreach(errorHandler)
     waitReadyResult(f)
     m._id
   }
 
-  def format(v: Option[Double]) = {
+  def format(v: Option[Double]): String = {
     if (v.isEmpty)
       "-"
     else
       v.get.toString
   }
 
-  def upsert(m: Monitor) = {
+  def upsert(m: Monitor): Unit = {
     val f = collection.replaceOne(Filters.equal("_id", m._id), m, ReplaceOptions().upsert(true)).toFuture()
-    f.onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     waitReadyResult(f)
     refresh
   }

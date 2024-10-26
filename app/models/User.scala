@@ -11,6 +11,7 @@ import play.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.implicitConversions
+import scala.util.Success
 
 
 case class User(_id: String,
@@ -53,21 +54,21 @@ class UserOp @Inject()(mongoDB: MongoDB) {
     for (colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(ColName)) {
         val f = mongoDB.database.createCollection(ColName).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
       }
     }
 
     val f = collection.countDocuments().toFuture()
-    f.onSuccess({
-      case count: Long =>
+    f.foreach(
+      count =>
         if (count == 0) {
           val defaultUser = User("sales@wecc.com.tw", "abc123", "Aragorn", true, Some(Group.PLATFORM_ADMIN),
             Seq(MonitorType.PM25), None)
           Logger.info("Create default user:" + defaultUser.toString)
           newUser(defaultUser)
         }
-    })
-    f.onFailure(errorHandler)
+    )
+    f.failed.foreach(errorHandler)
   }
 
 
@@ -113,7 +114,7 @@ class UserOp @Inject()(mongoDB: MongoDB) {
 
   def getUserByEmail(email: String): Option[User] = {
     val f = collection.find(equal("_id", email)).first().toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     val user = waitReadyResult(f)
@@ -122,7 +123,7 @@ class UserOp @Inject()(mongoDB: MongoDB) {
 
   def getAllUsers: Seq[User] = {
     val f = collection.find().toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     waitReadyResult(f)
@@ -130,27 +131,27 @@ class UserOp @Inject()(mongoDB: MongoDB) {
 
   def getAllUserFuture(): Future[Seq[User]] = {
     val f = collection.find().toFuture()
-    f onFailure errorHandler
+    f.failed.foreach(errorHandler)
     f
   }
 
   def getAdminUsers(): Seq[User] = {
     val f = collection.find(equal("isAdmin", true)).toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     waitReadyResult(f)
   }
 
   def getAlertEmailUsers: Future[Seq[User]] = {
-    val f = collection.find(exists("alertEmail", true)).toFuture()
-    f onFailure errorHandler()
+    val f = collection.find(exists("alertEmail", exists = true)).toFuture()
+    f.failed.foreach(errorHandler())
     f
   }
 
   def getUsersByGroupFuture(group: String): Future[Seq[User]] = {
     val f = collection.find(equal("group", group)).toFuture()
-    f.onFailure {
+    f.failed.foreach {
       errorHandler
     }
     f

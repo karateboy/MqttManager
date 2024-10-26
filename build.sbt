@@ -4,14 +4,17 @@ version := "1.2.19"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala, LauncherJarPlugin)
 
-scalaVersion := "2.11.12"
+scalaVersion := "2.12.10"
 
 libraryDependencies ++= Seq(
   ws,
   filters,
+  guice,
   "com.github.tototoshi" %% "scala-csv" % "1.3.5",
   "net.sf.marineapi" % "marineapi" % "0.10.0"
 )
+
+libraryDependencies += "com.typesafe.play" %% "play-json" % "2.6.0"
 
 // https://mvnrepository.com/artifact/org.mongodb.scala/mongo-scala-driver
 libraryDependencies += "org.mongodb.scala" %% "mongo-scala-driver" % "4.2.0"
@@ -29,11 +32,11 @@ libraryDependencies += "com.opencsv" % "opencsv" % "5.4"
 libraryDependencies += "org.apache.poi" % "poi-ooxml" % "5.0.0"
 
 // https://mvnrepository.com/artifact/com.typesafe.play/play-mailer
-libraryDependencies += "com.typesafe.play" %% "play-mailer" % "5.0.0"
+libraryDependencies += "com.typesafe.play" %% "play-mailer" % "6.0.1"
+libraryDependencies += "com.typesafe.play" %% "play-mailer-guice" % "6.0.1"
 
-// https://mvnrepository.com/artifact/com.azure/azure-ai-openai
-libraryDependencies += "com.azure" % "azure-ai-openai" % "1.0.0-beta.12"
-
+// https://mvnrepository.com/artifact/io.cequence/openai-scala-client
+// libraryDependencies += "io.cequence" %% "openai-scala-client" % "1.1.0"
 
 routesGenerator := StaticRoutesGenerator
 

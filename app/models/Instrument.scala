@@ -4,6 +4,7 @@ import models.Protocol.ProtocolParam
 import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecRegistries.fromCodecs
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
+import org.mongodb.scala.result.UpdateResult
 import play.api.libs.json._
 
 import javax.inject._
@@ -29,34 +30,34 @@ import org.mongodb.scala._
 
 @Singleton
 class InstrumentOp @Inject() (mongoDB: MongoDB) {
-  implicit val ipRead = Json.reads[InstrumentStatusType]
-  implicit val reader = Json.reads[Instrument]
-  implicit val ipWrite = Json.writes[InstrumentStatusType]
-  implicit val writer = Json.writes[Instrument]
-  implicit val infoWrites = Json.writes[InstrumentInfo]
+  implicit val ipRead: Reads[InstrumentStatusType] = Json.reads[InstrumentStatusType]
+  implicit val reader: Reads[Instrument] = Json.reads[Instrument]
+  implicit val ipWrite: OWrites[InstrumentStatusType] = Json.writes[InstrumentStatusType]
+  implicit val writer: OWrites[Instrument] = Json.writes[Instrument]
+  implicit val infoWrites: OWrites[InstrumentInfo] = Json.writes[InstrumentInfo]
 
   import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
   import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
   import org.mongodb.scala.model._
 
-  val codecRegistry = fromRegistries(fromProviders(classOf[Instrument], classOf[InstrumentStatusType],
+  private val codecRegistry = fromRegistries(fromProviders(classOf[Instrument], classOf[InstrumentStatusType],
     classOf[ProtocolParam]),
     fromCodecs(Protocol.CODEC2, Protocol.CODEC3, Protocol.CODEC4), DEFAULT_CODEC_REGISTRY)
   val colName = "instruments"
-  val collection = mongoDB.database.getCollection[Instrument](colName).withCodecRegistry(codecRegistry)
+  val collection: MongoCollection[Instrument] = mongoDB.database.getCollection[Instrument](colName).withCodecRegistry(codecRegistry)
 
 
 
-  def init() {
+  def init(): Unit = {
     for(colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(colName)) {
         val f = mongoDB.database.createCollection(colName).toFuture()
-        f.onFailure(errorHandler)
+        f.failed.foreach(errorHandler)
       }
     }
   }
-  init
+  init()
 
   import org.mongodb.scala.model.Filters._
   def upsertInstrument(inst: Instrument): Boolean = {
@@ -66,78 +67,78 @@ class InstrumentOp @Inject() (mongoDB: MongoDB) {
     true
   }
 
-  def getInstrumentList(): Seq[Instrument] = {
+  def getInstrumentList: Seq[Instrument] = {
     val f = collection.find().toFuture()
 
     waitReadyResult(f)
   }
 
-  def getDoInstrumentList() = {
+  def getDoInstrumentList(): Future[Seq[Instrument]] = {
     val f = collection.find(Filters.in("instType", InstrumentType.DoInstruments)).toFuture()
-    f onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
 
-  def getGroupDoInstrumentList(groupID: String) = {
+  def getGroupDoInstrumentList(groupID: String): Future[Seq[Instrument]] = {
     val filter = Filters.and(Filters.equal("group", groupID), Filters.in("instType", InstrumentType.DoInstruments:_*))
     val f = collection.find(filter).toFuture()
-    f onFailure(errorHandler)
+    f.failed.foreach(errorHandler)
     f
   }
-  def getInstrument(id: String) = {
+  def getInstrument(id: String): Seq[Instrument] = {
     val f = collection.find(equal("_id", id)).toFuture()
     waitReadyResult(f)
   }
 
   def getInstrumentFuture(id: String):Future[Instrument] = {
     val f = collection.find(equal("_id", id)).first().toFuture()
-    f onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
-  def getAllInstrumentFuture = {
+  def getAllInstrumentFuture: Future[Seq[Instrument]] = {
     val f = collection.find().toFuture()
-    f onFailure(errorHandler())
+    f.failed.foreach(errorHandler())
     f
   }
 
-  def delete(id: String) = {
+  def delete(id: String): Boolean = {
     val f = collection.deleteOne(equal("_id", id)).toFuture()
     val ret = waitReadyResult(f)
     ret.getDeletedCount != 0
   }
 
-  def activate(id: String) = {
+  def activate(id: String): Future[UpdateResult] = {
     import org.mongodb.scala.model.Updates._
     val f = collection.updateOne(equal("_id", id), set("active", true)).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex:Exception=>
         ModelHelper.logException(ex)
     })
     f
   }
 
-  def deactivate(id: String) = {
+  def deactivate(id: String): Future[UpdateResult] = {
     import org.mongodb.scala.model.Updates._
     val f = collection.updateOne(equal("_id", id), set("active", false)).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex:Exception=>
         ModelHelper.logException(ex)
     })
     f
   }
 
-  def setState(id:String, state:String) = {
+  def setState(id:String, state:String): Future[UpdateResult] = {
     import org.mongodb.scala.model.Updates._    
     val f = collection.updateOne(equal("_id", id), set("state", state)).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex:Exception=>
         ModelHelper.logException(ex)
     })
     f
   }
   
-  def updateStatusType(id:String, status:List[InstrumentStatusType]) = {
+  def updateStatusType(id:String, status:List[InstrumentStatusType]): Future[UpdateResult] = {
     import org.mongodb.scala.bson.BsonArray
     import org.mongodb.scala.model.Updates._
     val bArray = new BsonArray
@@ -145,7 +146,7 @@ class InstrumentOp @Inject() (mongoDB: MongoDB) {
     val statusDoc = status.map{ s => bArray.add(Document(Json.toJson(s).toString).toBsonDocument)}
     
     val f = collection.updateOne(equal("_id", id), set("statusType", bArray)).toFuture()
-    f.onFailure({
+    f.failed.foreach({
       case ex:Exception=>
         ModelHelper.logException(ex)
     })
