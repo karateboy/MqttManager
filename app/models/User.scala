@@ -5,13 +5,12 @@ import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistr
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.bson.codecs.Macros._
 import org.mongodb.scala.model.Updates
-import org.mongodb.scala.result.DeleteResult
+import org.mongodb.scala.result.{DeleteResult, InsertOneResult}
 import play.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.Success
 
 
 case class User(_id: String,
@@ -45,12 +44,13 @@ import javax.inject._
 class UserOp @Inject()(mongoDB: MongoDB) {
 
   import org.mongodb.scala._
+  val logger = Logger(this.getClass)
 
   val ColName = "users"
-  val codecRegistry = fromRegistries(fromProviders(classOf[User], classOf[AlarmConfig]), DEFAULT_CODEC_REGISTRY)
+  private val codecRegistry = fromRegistries(fromProviders(classOf[User], classOf[AlarmConfig]), DEFAULT_CODEC_REGISTRY)
   val collection: MongoCollection[User] = mongoDB.database.withCodecRegistry(codecRegistry).getCollection(ColName)
 
-  def init() {
+  def init(): Unit = {
     for (colNames <- mongoDB.database.listCollectionNames().toFuture()) {
       if (!colNames.contains(ColName)) {
         val f = mongoDB.database.createCollection(ColName).toFuture()
@@ -62,9 +62,9 @@ class UserOp @Inject()(mongoDB: MongoDB) {
     f.foreach(
       count =>
         if (count == 0) {
-          val defaultUser = User("sales@wecc.com.tw", "abc123", "Aragorn", true, Some(Group.PLATFORM_ADMIN),
+          val defaultUser = User("sales@wecc.com.tw", "abc123", "Aragorn", isAdmin = true, Some(Group.PLATFORM_ADMIN),
             Seq(MonitorType.PM25), None)
-          Logger.info("Create default user:" + defaultUser.toString)
+          logger.info("Create default user:" + defaultUser.toString)
           newUser(defaultUser)
         }
     )
@@ -72,9 +72,9 @@ class UserOp @Inject()(mongoDB: MongoDB) {
   }
 
 
-  init
+  init()
 
-  def newUser(user: User) = {
+  def newUser(user: User): InsertOneResult = {
     val f = collection.insertOne(user).toFuture()
     waitReadyResult(f)
   }
@@ -123,20 +123,6 @@ class UserOp @Inject()(mongoDB: MongoDB) {
 
   def getAllUsers: Seq[User] = {
     val f = collection.find().toFuture()
-    f.failed.foreach {
-      errorHandler
-    }
-    waitReadyResult(f)
-  }
-
-  def getAllUserFuture(): Future[Seq[User]] = {
-    val f = collection.find().toFuture()
-    f.failed.foreach(errorHandler)
-    f
-  }
-
-  def getAdminUsers(): Seq[User] = {
-    val f = collection.find(equal("isAdmin", true)).toFuture()
     f.failed.foreach {
       errorHandler
     }

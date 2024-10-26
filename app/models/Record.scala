@@ -41,7 +41,7 @@ import javax.inject._
 
 @Singleton
 class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
-
+  val logger: Logger = Logger(this.getClass)
   import org.mongodb.scala.model._
   import play.api.libs.json._
 
@@ -93,7 +93,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
     val col = getCollection(colName)
     val f = col.insertMany(docs).toFuture()
     f.failed.foreach({
-      case ex: Exception => Logger.error(ex.getMessage, ex)
+      case ex: Exception => logger.error(ex.getMessage, ex)
     })
     f
   }
@@ -105,7 +105,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
 
     val f = col.replaceOne(Filters.equal("_id", RecordListID(doc._id.time, doc._id.monitor)), doc, ReplaceOptions().upsert(true)).toFuture()
     f.failed.foreach({
-      case ex: Exception => Logger.error(ex.getMessage, ex)
+      case ex: Exception => logger.error(ex.getMessage, ex)
     })
     f
   }
@@ -120,7 +120,7 @@ class RecordOp @Inject()(mongoDB: MongoDB, monitorOp: MonitorOp) {
       and(equal("_id", RecordListID(new DateTime(dt), monitor)),
         equal("mtDataList.mtName", mt)), set("mtDataList.$.status", status)).toFuture()
     f.failed.foreach({
-      case ex: Exception => Logger.error(ex.getMessage, ex)
+      case ex: Exception => logger.error(ex.getMessage, ex)
     })
     f
   }

@@ -11,9 +11,9 @@ import scala.language.implicitConversions
 
 case class AlarmConfig(enable:Boolean, statusFilter:Seq[String])
 object AlarmConfig {
-  val defaultConfig = AlarmConfig(enable = false, Seq.empty[String])
-  implicit val acRead = Json.reads[AlarmConfig]
-  implicit val acWrite = Json.writes[AlarmConfig]
+  val defaultConfig: AlarmConfig = AlarmConfig(enable = false, Seq.empty[String])
+  implicit val acRead: Reads[AlarmConfig] = Json.reads[AlarmConfig]
+  implicit val acWrite: OWrites[AlarmConfig] = Json.writes[AlarmConfig]
   
   import org.mongodb.scala.bson._
   implicit object TransformAlarmConfig extends BsonTransformer[AlarmConfig] {

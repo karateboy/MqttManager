@@ -37,7 +37,7 @@ class MoxaE1240Collector @Inject()
 (monitorTypeOp: MonitorTypeOp, instrumentOp: InstrumentOp, system: ActorSystem)
 (@Assisted id: String, @Assisted protocolParam: ProtocolParam, @Assisted param: MoxaE1240Param) extends Actor with ActorLogging {
   import MoxaE1240Collector._
-
+  val logger = Logger(this.getClass)
   var cancelable: Cancellable = _
 
   def decode(values: Seq[Float], collectorState: String) = {
@@ -96,8 +96,8 @@ class MoxaE1240Collector @Inject()
             cancelable = system.scheduler.scheduleOnce(Duration(3, SECONDS), self, Collect)
           } catch {
             case ex: Exception =>
-              Logger.error(ex.getMessage, ex)
-              Logger.info("Try again 1 min later...")
+              logger.error(ex.getMessage, ex)
+              logger.info("Try again 1 min later...")
               //Try again
               cancelable = system.scheduler.scheduleOnce(Duration(1, MINUTES), self, ConnectHost)
           }
@@ -130,7 +130,7 @@ class MoxaE1240Collector @Inject()
             cancelable = system.scheduler.scheduleOnce(scala.concurrent.duration.Duration(3, SECONDS), self, Collect)
           } catch {
             case ex: Throwable =>
-              Logger.error("Read reg failed", ex)
+              logger.error("Read reg failed", ex)
               masterOpt.get.destroy()
               context become handler(collectorState, None)
               self ! ConnectHost
@@ -139,7 +139,7 @@ class MoxaE1240Collector @Inject()
       }.failed.foreach(errorHandler)
 
     case SetState(id, state) =>
-      Logger.info(s"$self => $state")
+      logger.info(s"$self => $state")
       instrumentOp.setState(id, state)
       context become handler(state, masterOpt)
   }

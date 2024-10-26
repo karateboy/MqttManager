@@ -7,20 +7,22 @@ import ModelHelper._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import Protocol.ProtocolParam
+import com.github.nscala_time.time
+import com.github.nscala_time.time.Imports
 import com.google.inject.assistedinject.Assisted
 
 object GpsCollector extends DriverOps {
-  override def getMonitorTypes(param: String) = {
-    val lat = ("LAT")
-    val lng = ("LNG")
+  override def getMonitorTypes(param: String): List[String] = {
+    val lat = "LAT"
+    val lng = "LNG"
     List(lat, lng)
   }
 
-  override def verifyParam(json: String) = {
+  override def verifyParam(json: String): String = {
     json
   }
 
-  override def getCalibrationTime(param: String) = None
+  override def getCalibrationTime(param: String): Option[time.Imports.LocalTime] = None
 
   var count = 0
 
@@ -55,15 +57,15 @@ class GpsCollector @Inject()(monitorTypeOp: MonitorTypeOp)(@Assisted id: String,
   import scala.concurrent.Future
   import scala.concurrent.blocking
 
-  def receive = handler(MonitorStatus.NormalStat)
+  def receive: Receive = handler(MonitorStatus.NormalStat)
 
   def handler(collectorState: String): Receive = {
     case SetState(id, state) =>
-      Logger.warn(s"Ignore $self => $state")
+      logger.warn(s"Ignore $self => $state")
   }
 
-  def init() {
-    Logger.info("Init GPS reader...")
+  def init(): Unit = {
+    logger.info("Init GPS reader...")
     val stream = comm.is
     reader = new SentenceReader(stream)
     reader.setExceptionListener(this)
@@ -72,7 +74,7 @@ class GpsCollector @Inject()(monitorTypeOp: MonitorTypeOp)(@Assisted id: String,
     reader.start()
   }
 
-  init
+  init()
 
   override def postStop(): Unit = {
     if (reader != null) {
@@ -84,8 +86,8 @@ class GpsCollector @Inject()(monitorTypeOp: MonitorTypeOp)(@Assisted id: String,
   }
 
   import com.github.nscala_time.time.Imports._
-  var reportTime = DateTime.now
-  def providerUpdate(evt: PositionEvent) {
+  var reportTime: DateTime = DateTime.now
+  def providerUpdate(evt: PositionEvent): Unit = {
     if (reportTime < DateTime.now - 3.second) {
       val lat = MonitorTypeData(MonitorType.LAT, evt.getPosition.getLatitude, MonitorStatus.NormalStat)
       val lng = MonitorTypeData(MonitorType.LNG, evt.getPosition.getLongitude, MonitorStatus.NormalStat)
@@ -94,32 +96,32 @@ class GpsCollector @Inject()(monitorTypeOp: MonitorTypeOp)(@Assisted id: String,
     }
   }
 
-  def onException(ex: Exception) {
-    Logger.warn(ex.getMessage)
+  def onException(ex: Exception): Unit = {
+    logger.warn(ex.getMessage)
   }
 
   /*
 	 * (non-Javadoc)
 	 * @see net.sf.marineapi.nmea.event.SentenceListener#readingPaused()
 	 */
-  def readingPaused() {
-    Logger.debug("-- Paused --");
+  def readingPaused(): Unit = {
+    logger.debug("-- Paused --");
   }
 
   /*
 	 * (non-Javadoc)
 	 * @see net.sf.marineapi.nmea.event.SentenceListener#readingStarted()
 	 */
-  def readingStarted() {
-    Logger.debug("-- Started --");
+  def readingStarted(): Unit = {
+    logger.debug("-- Started --");
   }
 
   /*
 	 * (non-Javadoc)
 	 * @see net.sf.marineapi.nmea.event.SentenceListener#readingStopped()
 	 */
-  def readingStopped() {
-    Logger.debug("-- Stopped --");
+  def readingStopped(): Unit = {
+    logger.debug("-- Stopped --");
   }
 
   /*
@@ -128,9 +130,9 @@ class GpsCollector @Inject()(monitorTypeOp: MonitorTypeOp)(@Assisted id: String,
 	 * net.sf.marineapi.nmea.event.SentenceListener#sentenceRead(net.sf.marineapi
 	 * .nmea.event.SentenceEvent)
 	 */
-  def sentenceRead(event: SentenceEvent) {
+  def sentenceRead(event: SentenceEvent): Unit = {
     // here we receive each sentence read from the port
-    Logger.debug(event.getSentence().toString());
+    logger.debug(event.getSentence.toString);
   }
 
 }

@@ -3,6 +3,7 @@ import com.github.nscala_time.time.Imports._
 import play.api._
 import play.api.libs.json._
 
+import java.sql.Timestamp
 import scala.language.implicitConversions
 
 /**
@@ -11,45 +12,37 @@ import scala.language.implicitConversions
 import javax.inject._
 
 object ModelHelper {
-  implicit def getSqlTimestamp(t: DateTime) = {
+  val logger: Logger = Logger("models.ModelHelper")
+  implicit def getSqlTimestamp(t: DateTime): Timestamp = {
     new java.sql.Timestamp(t.getMillis)
   }
 
-  implicit def getDateTime(st: java.sql.Timestamp) = {
+  implicit def getDateTime(st: java.sql.Timestamp): DateTime = {
     new DateTime(st)
   }
 
   import org.mongodb.scala.bson.BsonDateTime
-  implicit def toDateTime(time: BsonDateTime) = new DateTime(time.getValue)
-  implicit def toBsonDateTime(jdtime: DateTime) = new BsonDateTime(jdtime.getMillis)
+  implicit def toDateTime(time: BsonDateTime): DateTime = new DateTime(time.getValue)
+  implicit def toBsonDateTime(jdtime: DateTime): BsonDateTime = new BsonDateTime(jdtime.getMillis)
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val timestamp = DateTime.parse("2015-04-01")
     println(timestamp.toString())
   }
 
-  def logException(ex: Throwable) = {
-    Logger.error(ex.getMessage, ex)
-  }
-  def logInstrumentError(id: String, msg: String, ex: Throwable) = {
-    Logger.error(msg, ex)
-    //log(instStr(id), Level.ERR, msg)
-  }
-
-  def logInstrumentInfo(id: String, msg: String) = {
-    Logger.info(msg)
-    //log(instStr(id), Level.INFO, msg)
+  def logException(ex: Throwable): Unit = {
+    logger.error(ex.getMessage, ex)
   }
 
   def errorHandler: PartialFunction[Throwable, Any] = {
     case ex: Throwable =>
-      Logger.error("Error=>", ex)
+      logger.error("Error=>", ex)
       throw ex
   }
 
   def errorHandler(prompt: String = "Error=>"): PartialFunction[Throwable, Any] = {
     case ex: Throwable =>
-      Logger.error(prompt, ex)
+      logger.error(prompt, ex)
       throw ex
   }
 
@@ -63,7 +56,7 @@ object ModelHelper {
 
   def windAvg(windSpeed: Seq[Record], windDir: Seq[Record]): Double = {
     if (windSpeed.length != windDir.length)
-      Logger.error(s"windSpeed #=${windSpeed.length} windDir #=${windDir.length}")
+      logger.error(s"windSpeed #=${windSpeed.length} windDir #=${windDir.length}")
 
     val windRecord = windSpeed.zip(windDir)
     val wind_sin = windRecord.map(v => v._1.value * Math.sin(Math.toRadians(v._2.value))).sum
@@ -73,7 +66,7 @@ object ModelHelper {
 
   def windAvg(windSpeed: List[Double], windDir: List[Double]): Double = {
     if (windSpeed.length != windDir.length)
-      Logger.error(s"windSpeed #=${windSpeed.length} windDir #=${windDir.length}")
+      logger.error(s"windSpeed #=${windSpeed.length} windDir #=${windDir.length}")
 
     val windRecord = windSpeed.zip(windDir)
     val wind_sin = windRecord.map(v => v._1 * Math.sin(Math.toRadians(v._2))).sum
@@ -96,7 +89,7 @@ object ModelHelper {
 
   import scala.concurrent._
 
-  def waitReadyResult[T](f: Future[T]) = {
+  def waitReadyResult[T](f: Future[T]): T = {
     import scala.concurrent.duration._
     import scala.util._
 
@@ -106,7 +99,7 @@ object ModelHelper {
       case Success(t) =>
         t
       case Failure(ex) =>
-        Logger.error(ex.getMessage, ex)
+        logger.error(ex.getMessage, ex)
         throw ex
     }
   }

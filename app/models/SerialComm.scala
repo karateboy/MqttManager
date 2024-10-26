@@ -8,6 +8,7 @@ import jssc.SerialPort
 import play.api._
 
 case class SerialComm(port: SerialPort, is: SerialInputStream, os: SerialOutputStream) {
+  val logger = Logger(this.getClass)
   var readBuffer = Array.empty[Byte]
   def getLine = {
     def splitLine(buf: Array[Byte]): List[String] = {
@@ -95,14 +96,14 @@ case class SerialComm(port: SerialPort, is: SerialInputStream, os: SerialOutputS
     if (ret != null)
       readBuffer = readBuffer ++ ret
 
-    Logger.info(s"readBuffer len=${readBuffer.length}")
+    logger.info(s"readBuffer len=${readBuffer.length}")
     splitLine(readBuffer)
   }
 
-  def close = {
-    Logger.info(s"port is closed")
-    is.close
-    os.close
+  def close(): Unit = {
+    logger.info(s"port is closed")
+    is.close()
+    os.close()
     port.closePort()
     readBuffer = Array.empty[Byte]
   }
@@ -134,13 +135,13 @@ object SerialComm {
 }
 
 class SerialOutputStream(port: SerialPort) extends OutputStream {
-  override def write(b: Int) = {
+  override def write(b: Int): Unit = {
     port.writeByte(b.toByte)
   }
 }
 
 class SerialInputStream(serialPort: jssc.SerialPort) extends InputStream {
-  override def read() = {
+  override def read(): Int = {
     val retArray = serialPort.readBytes(1)
     if(retArray.length == 0)
       -1
@@ -150,18 +151,18 @@ class SerialInputStream(serialPort: jssc.SerialPort) extends InputStream {
 }
 
 class SerialRTU(n: Int, baudRate: Int) extends SerialPortWrapper {
-
+  val logger = Logger(this.getClass)
   var serialCommOpt : Option[SerialComm]= None
 
   override def close(): Unit = {
-    Logger.info(s"SerialRTU COM${n} close")
+    logger.info(s"SerialRTU COM${n} close")
 
     for(serialComm <- serialCommOpt)
       serialComm.close
   }
 
   override def open(): Unit = {
-    Logger.info(s"SerialRTU COM${n} open")
+    logger.info(s"SerialRTU COM${n} open")
     serialCommOpt = Some(SerialComm.open(n, baudRate))
   }
 

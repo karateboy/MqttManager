@@ -1,6 +1,6 @@
 name := """MqttManager"""
 
-version := "1.2.19"
+version := "1.7.0"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala, LauncherJarPlugin)
 
@@ -32,13 +32,11 @@ libraryDependencies += "com.opencsv" % "opencsv" % "5.4"
 libraryDependencies += "org.apache.poi" % "poi-ooxml" % "5.0.0"
 
 // https://mvnrepository.com/artifact/com.typesafe.play/play-mailer
-libraryDependencies += "com.typesafe.play" %% "play-mailer" % "6.0.1"
-libraryDependencies += "com.typesafe.play" %% "play-mailer-guice" % "6.0.1"
+libraryDependencies += "com.typesafe.play" %% "play-mailer" % "7.0.2"
+libraryDependencies += "com.typesafe.play" %% "play-mailer-guice" % "7.0.2"
 
 // https://mvnrepository.com/artifact/io.cequence/openai-scala-client
 // libraryDependencies += "io.cequence" %% "openai-scala-client" % "1.1.0"
-
-routesGenerator := StaticRoutesGenerator
 
 mappings in Universal ++=
 (baseDirectory.value / "report_template" * "*" get) map

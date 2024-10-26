@@ -23,6 +23,8 @@ case class Alarm(time: Date, src: String, level: Int, desc: String) {
 
 @Singleton
 class AlarmOp @Inject()(mongoDB: MongoDB) {
+  val logger = Logger(this.getClass)
+
   object Level {
     val INFO = 1
     val WARN = 2
@@ -97,7 +99,7 @@ class AlarmOp @Inject()(mongoDB: MongoDB) {
           f.failed.foreach(errorHandler)
         }
       }, // onNext
-      (ex: Throwable) => Logger.error("Alarm failed:", ex), // onError
+      (ex: Throwable) => logger.error("Alarm failed:", ex), // onError
       () => {} // onComplete
       )
 

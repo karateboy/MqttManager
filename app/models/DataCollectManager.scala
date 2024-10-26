@@ -296,7 +296,7 @@ class DataCollectManagerOp @Inject()(@Named("dataCollectManager") manager: Actor
                           mailerClient.send(mail)
                         } catch {
                           case ex: Exception =>
-                            Logger.error("Failed to send email", ex)
+                            logger.error("Failed to send email", ex)
                         }
                       }
                     }
@@ -374,7 +374,7 @@ class DataCollectManagerOp @Inject()(@Named("dataCollectManager") manager: Actor
                     mailerClient.send(mail)
                   } catch {
                     case ex: Exception =>
-                      Logger.error("Failed to send email", ex)
+                      logger.error("Failed to send email", ex)
                   }
                 }
               }
@@ -404,7 +404,7 @@ class DataCollectManager @Inject()
  userOp: UserOp) extends Actor with InjectedActorSupport {
   private val effectivRatio = 0.75
   private val storeSecondData = config.getOptional[Boolean]("storeSecondData").getOrElse(false)
-  Logger.info(s"store second data = $storeSecondData")
+  logger.info(s"store second data = $storeSecondData")
 
   import DataCollectManager._
 
@@ -420,7 +420,7 @@ class DataCollectManager @Inject()
       if (inst.active)
         self ! StartInstrument(inst)
   }
-  Logger.info("DataCollect manager started")
+  logger.info("DataCollect manager started")
 
   private def calculateAvgMap(mtMap: Map[String, Map[String, ListBuffer[(DateTime, Double)]]]) = {
     for {
@@ -471,7 +471,7 @@ class DataCollectManager @Inject()
     }
   }
 
-  def receive = handler(Map.empty[String, InstrumentParam], Map.empty[ActorRef, String],
+  def receive: Receive = handler(Map.empty[String, InstrumentParam], Map.empty[ActorRef, String],
     Map.empty[String, Map[String, Record]], List.empty[(DateTime, String, List[MonitorTypeData])], List.empty[String]
     , Map.empty[String, SprayAction])
 
@@ -514,8 +514,8 @@ class DataCollectManager @Inject()
       val paramOpt = instrumentMap.get(id)
       if (paramOpt.isDefined) {
         val param = paramOpt.get
-        Logger.info(s"Stop collecting instrument $id ")
-        Logger.info(s"remove ${param.mtList.toString()}")
+        logger.info(s"Stop collecting instrument $id ")
+        logger.info(s"remove ${param.mtList.toString()}")
         param.calibrationTimerOpt.map { timer => timer.cancel() }
         param.actor ! PoisonPill
 
@@ -541,7 +541,7 @@ class DataCollectManager @Inject()
 
     case RestartMyself =>
       val id = collectorInstrumentMap(sender)
-      Logger.info(s"restart $id")
+      logger.info(s"restart $id")
       self ! RestartInstrument(id)
 
     case ReportData(dataList) =>
@@ -746,19 +746,19 @@ class DataCollectManager @Inject()
         param.actor ! ManualSpanCalibration(instId)
       }
     case WriteTargetDO(instId, bit, on) =>
-      Logger.debug(s"WriteTargetDO($instId, $bit, $on)")
+      logger.debug(s"WriteTargetDO($instId, $bit, $on)")
       instrumentMap.get(instId).map { param =>
         param.actor ! WriteDO(bit, on)
       }
 
     case ToggleTargetDO(instId, bit: Int, seconds) =>
-      Logger.debug(s"ToggleTargetDO($instId, $bit)")
+      logger.debug(s"ToggleTargetDO($instId, $bit)")
       self ! WriteTargetDO(instId, bit, on = true)
       context.system.scheduler.scheduleOnce(scala.concurrent.duration.Duration(seconds, SECONDS),
         self, WriteTargetDO(instId, bit, on = false))
 
     case ToggleMonitorTypeDO(instId, mtID, seconds) =>
-      Logger.info(s"ToggleMonitorTypeDO($instId, $mtID)")
+      logger.info(s"ToggleMonitorTypeDO($instId, $mtID)")
       instrumentMap.get(instId).map { param =>
         param.actor ! WriteMonitorTypeDO(mtID, on = true)
         context.system.scheduler.scheduleOnce(scala.concurrent.duration.Duration(seconds, SECONDS),
@@ -778,20 +778,20 @@ class DataCollectManager @Inject()
           sender ! ret
       }
     case msg: ExecuteSeq =>
-      Logger.error(s"Unexpected message! Calibrator is not online! Ignore execute (${msg.seq} - ${msg.on}).")
+      logger.error(s"Unexpected message! Calibrator is not online! Ignore execute (${msg.seq} - ${msg.on}).")
 
 
     case msg: WriteDO =>
-      Logger.warn(s"Unexpected message! DO is not online! Ignore output (${msg.bit} - ${msg.on}).")
+      logger.warn(s"Unexpected message! DO is not online! Ignore output (${msg.bit} - ${msg.on}).")
 
 
     case EvtOperationOverThreshold =>
-      Logger.warn(s"Unexpected message! DO is not online! Ignore EvtOperationOverThreshold.")
+      logger.warn(s"Unexpected message! DO is not online! Ignore EvtOperationOverThreshold.")
 
 
     case CheckSensorStstus =>
       val today = DateTime.now().withMillisOfDay(0)
-      Logger.info(s"update daily error report ${today}")
+      logger.info(s"update daily error report ${today}")
       self ! CheckConstantSensor
       // It is tricky less than 90% is calculated based on beginnning of today.
       val sensorCountFuture = recordOp
@@ -800,11 +800,11 @@ class DataCollectManager @Inject()
 
       for (ret: Seq[MonitorRecord] <- sensorCountFuture) {
         val targetMonitorIDSet = monitorOp.mvList.toSet
-        Logger.info(s"targetMonitor #=${targetMonitorIDSet.size}")
+        logger.info(s"targetMonitor #=${targetMonitorIDSet.size}")
         val connectedSet = ret.map(_._id).toSet
-        Logger.info(s"connectedSet=${connectedSet.size}")
+        logger.info(s"connectedSet=${connectedSet.size}")
         val disconnectedSet = targetMonitorIDSet -- connectedSet
-        Logger.info(s"disconnectedSet=${disconnectedSet.size}")
+        logger.info(s"disconnectedSet=${disconnectedSet.size}")
         errorReportOp.setDisconnectRecordTime(today, DateTime.now().getTime)
         for (m <- disconnectedSet)
           errorReportOp.addDisconnectedSensor(today, m)
@@ -841,7 +841,7 @@ class DataCollectManager @Inject()
       }
 
     case SendErrorReport =>
-      Logger.info("send daily error report")
+      logger.info("send daily error report")
       //val groups = groupOp.map
       for (emailUsers <- userOp.getAlertEmailUsers) {
         val alertEmails = emailUsers.flatMap {
@@ -870,7 +870,7 @@ class DataCollectManager @Inject()
         }
 
         if (monitorTypeOp.map(mt).measuringBy.isEmpty) {
-          Logger.warn(s"$mt has not measuring instrument!")
+          logger.warn(s"$mt has not measuring instrument!")
           None
         } else {
           val measuringList = monitorTypeOp.map(mt).measuringBy.get
@@ -887,9 +887,9 @@ class DataCollectManager @Inject()
       sender ! latestMap
 
     case SprayAction(instId, warn, pause, spray) =>
-      Logger.info(s"Handle SprayAction($instId, $warn, $pause, $spray)")
+      logger.info(s"Handle SprayAction($instId, $warn, $pause, $spray)")
       if (sprayInstrumentMap.contains(instId)) {
-        Logger.warn(s"SprayAction($instId, $warn, $pause, $spray) is already in progress!")
+        logger.warn(s"SprayAction($instId, $warn, $pause, $spray) is already in progress!")
       } else {
         // |SPRAY_WARN|PAUSE|SPRAY|PAUSE|SPRAY|-------
         // |  0       |  1  |  2  |  3  |  4  |
@@ -913,7 +913,7 @@ class DataCollectManager @Inject()
         context become handler(instrumentMap, collectorInstrumentMap, latestDataMap, mtDataList, restartList,
           sprayInstrumentMap - instId)
       } else {
-        Logger.warn(s"SprayActionEnd($instId) is not in progress!")
+        logger.warn(s"SprayActionEnd($instId) is not in progress!")
       }
   }
 

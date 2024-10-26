@@ -81,6 +81,7 @@ class InstrumentTypeOp @Inject()
   import Protocol._
   import InstrumentType._
 
+  val logger = Logger(this.getClass)
   val map = Map(
     InstrumentType(ADAM4017, "Adam 4017", List(Serial()), adam4017Drv, adam4017Factory, true).infoPair,
     InstrumentType(ADAM4068, "Adam 4068", List(Serial()), Adam4068, adam4068Factory, true).infoPair,
@@ -94,13 +95,9 @@ class InstrumentTypeOp @Inject()
 
   var count = 0
 
-  def getInstInfoPair(instType: InstrumentType) = {
-    instType.id -> instType
-  }
-
   def start(instType: String, id: String, protocol: ProtocolParam, param: String)(implicit context: ActorContext): ActorRef = {
     val actorName = s"${instType}_${count}"
-    Logger.info(s"$actorName is created.")
+    logger.info(s"$actorName is created.")
     count += 1
 
     val instrumentType = map(instType)
