@@ -40,10 +40,8 @@ class InstrumentStatusOp @Inject()(mongoDB: MongoDB) {
       if (!colNames.contains(collectionName)) {
         val f = mongoDB.database.createCollection(collectionName).toFuture()
         f.failed.foreach(errorHandler)
-        f.onSuccess({
-          case _ =>
-            collection.createIndex(ascending("time", "instID"))
-        })
+        f.foreach(_ =>
+            collection.createIndex(ascending("time", "instID")))
       }
     }
   }

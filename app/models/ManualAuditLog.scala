@@ -65,10 +65,7 @@ class ManualAuditLogOp @Inject()(mongoDB: MongoDB, monitorTypeOp: MonitorTypeOp)
       if (!colNames.contains(collectionName)) {
         val f = mongoDB.database.createCollection(collectionName).toFuture()
         f.failed.foreach(errorHandler)
-        f.onSuccess({
-          case _ =>
-            collection.createIndex(ascending("dataTime", "mt"))
-        })
+        f.foreach(_ => collection.createIndex(ascending("dataTime", "mt")))
       }
     }
   }

@@ -8,8 +8,8 @@ import scala.concurrent.Future
 
 @Singleton
 class Every8d @Inject()(config: Configuration, WSClient: WSClient) {
-  private val account = config.getString("every8d.account").get
-  val password: String = config.getString("every8d.password").get
+  private val account = config.get[String]("every8d.account")
+  val password: String = config.get[String]("every8d.password")
   Logger.info(s"every8d account:$account password:$password")
 
   def sendSMS(subject:String, content:String, mobileList:List[String]): Future[WSResponse] = {

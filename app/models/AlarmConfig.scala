@@ -6,7 +6,7 @@ import models._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Json
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
 case class AlarmConfig(enable:Boolean, statusFilter:Seq[String])
@@ -25,7 +25,7 @@ object AlarmConfig {
     if(doc.get("enable").isBoolean && doc.get("statusFilter").isArray){
       val enable = doc.get("enable").asBoolean().getValue
       val bsonStatusFilter = doc.get("statusFilter").asArray().getValues
-      val statusFilter = bsonStatusFilter.map { x => x.asString().getValue }
+      val statusFilter = bsonStatusFilter.asScala.map { x => x.asString().getValue }
       Some(AlarmConfig(enable, statusFilter))
     }else{
       None

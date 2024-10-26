@@ -403,7 +403,7 @@ class DataCollectManager @Inject()
  groupOp: GroupOp,
  userOp: UserOp) extends Actor with InjectedActorSupport {
   private val effectivRatio = 0.75
-  private val storeSecondData = config.getBoolean("storeSecondData").getOrElse(false)
+  private val storeSecondData = config.getOptional[Boolean]("storeSecondData").getOrElse(false)
   Logger.info(s"store second data = $storeSecondData")
 
   import DataCollectManager._

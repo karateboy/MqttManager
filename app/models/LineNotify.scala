@@ -10,7 +10,7 @@ import scala.concurrent.Future
 class LineNotify @Inject()(WSClient: WSClient) {
   def notify(token:String, msg:String): Future[Unit] ={
     val f = WSClient.url("https://notify-api.line.me/api/notify").
-      withHeaders("Authorization"-> s"Bearer $token",
+      withHttpHeaders("Authorization"-> s"Bearer $token",
         "Content-Type"->"application/x-www-form-urlencoded")
       .post(Map("message" -> Seq(msg)))
 
